@@ -18,6 +18,7 @@ import 'package:nova_wallet_mobile/features/send_money/presentation/notifier/sen
 import 'package:nova_wallet_mobile/features/wallet_home/data/datasources/wallet_remote_datasource.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/data/repositories/wallet_repository_impl.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/domain/repositories/wallet_repository.dart';
+import 'package:nova_wallet_mobile/features/wallet_home/domain/usecases/get_recent_transactions_usecase.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/domain/usecases/get_wallet_balance_usecase.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/presentation/notifier/wallet_home_provider.dart';
 
@@ -30,12 +31,12 @@ Future<void> initDependencies({
   // -------------------------------------------------------------
   // Core Infrastructure
   // -------------------------------------------------------------
-
   sl.registerLazySingleton<NetworkInfo>(() => networkInfo ?? NetworkInfoImpl());
   sl.registerLazySingleton<SecureStorageService>(
     () => SecureStorageServiceImpl(),
   );
 
+  // SQLite Offline Action Queue Database & Repository
   sl.registerLazySingleton<SyncDatabaseHelper>(
     () => dbHelper ?? SyncDatabaseHelper(),
   );
@@ -46,24 +47,25 @@ Future<void> initDependencies({
     () => SyncEngine(repository: sl(), networkInfo: sl()),
   );
 
+  // -------------------------------------------------------------
   // Data sources
+  // -------------------------------------------------------------
   sl.registerLazySingleton<WalletRemoteDataSource>(
     () => WalletRemoteDataSourceImpl(),
   );
-
   sl.registerLazySingleton<TransferRemoteDataSource>(
     () => TransferRemoteDataSourceImpl(),
   );
-
   sl.registerLazySingleton<SavingsRemoteDataSource>(
     () => SavingsRemoteDataSourceImpl(),
   );
 
+  // -------------------------------------------------------------
   // Repositories
+  // -------------------------------------------------------------
   sl.registerLazySingleton<WalletRepository>(
     () => WalletRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()),
   );
-
   sl.registerLazySingleton<TransferRepository>(
     () => TransferRepositoryImpl(
       remoteDataSource: sl(),
@@ -75,18 +77,27 @@ Future<void> initDependencies({
     () => SavingsRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()),
   );
 
-  //
-  //
-  // Usecases
+  // -------------------------------------------------------------
+  // Use cases
+  // -------------------------------------------------------------
   sl.registerLazySingleton(() => GetWalletBalanceUseCase(sl()));
+  sl.registerLazySingleton(() => GetRecentTransactionsUseCase(sl()));
   sl.registerLazySingleton(() => SendMoneyUseCase(sl()));
   sl.registerLazySingleton(() => GetSavingsGoalsUseCase(sl()));
 
-  // Providers
-  sl.registerFactory(() => WalletHomeProvider(getWalletBalanceUseCase: sl()));
+  // -------------------------------------------------------------
+  // Providers (Factory)
+  // -------------------------------------------------------------
+  sl.registerFactory(
+    () => WalletHomeProvider(
+      getWalletBalanceUseCase: sl(),
+      getRecentTransactionsUseCase: sl(),
+      syncEngine: sl(),
+    ),
+  );
   sl.registerFactory(() => SendMoneyProvider(sendMoneyUseCase: sl()));
   sl.registerFactory(() => NovaSaveProvider(getSavingsGoalsUseCase: sl()));
 
-  // Initialize Sync Engine crash recovery & connectivity l istener
+  // Initialize Sync Engine crash recovery & connectivity listener
   await sl<SyncEngine>().init();
 }
