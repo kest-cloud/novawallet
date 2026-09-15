@@ -83,6 +83,7 @@ Future<void> initDependencies({
       networkInfo: sl(),
       syncEngine: sl(),
       walletRepository: sl(),
+      dbHelper: sl(),
     ),
   );
 

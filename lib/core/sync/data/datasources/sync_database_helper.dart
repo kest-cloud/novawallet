@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
+import 'package:nova_wallet_mobile/features/nova_save/data/models/savings_goal_model.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/data/models/transaction_model.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/data/models/wallet_balance_model.dart';
 
@@ -8,6 +9,7 @@ class SyncDatabaseHelper {
   static const String tableName = 'queued_actions';
   static const String transactionsTable = 'transactions';
   static const String walletBalanceTable = 'wallet_balance';
+  static const String savingsGoalsTable = 'savings_goals';
   static const String dbFileName = 'novawallet_sync_queue.db';
   static const int dbVersion = 1;
 
@@ -76,7 +78,19 @@ class SyncDatabaseHelper {
       )
     ''');
 
-    // Seed initial starting balance on fresh install (₦1,250,500.50) with 0 transactions
+    // 4. Persistent Savings Goals Table (starts empty initially)
+    await db.execute('''
+      CREATE TABLE $savingsGoalsTable (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        target_amount_kobo INTEGER NOT NULL,
+        current_amount_kobo INTEGER NOT NULL,
+        target_date TEXT NOT NULL,
+        is_locked INTEGER NOT NULL
+      )
+    ''');
+
+    // Seed initial starting balance on fresh install (₦1,250,500.50) with 0 transactions & 0 goals
     await db.execute('''
       INSERT OR IGNORE INTO $walletBalanceTable (
         account_id,
@@ -170,6 +184,70 @@ class SyncDatabaseHelper {
       {'status': status},
       where: 'reference = ?',
       whereArgs: [reference],
+    );
+  }
+
+  // -------------------------------------------------------------
+  // Savings Goals Operations
+  // -------------------------------------------------------------
+  Future<List<SavingsGoalModel>> getSavingsGoals() async {
+    final db = await database;
+    final results = await db.query(savingsGoalsTable);
+    return results
+        .map(
+          (row) => SavingsGoalModel(
+            id: row['id'] as String,
+            title: row['title'] as String,
+            targetAmount: Money.fromKobo(row['target_amount_kobo'] as int),
+            currentAmount: Money.fromKobo(row['current_amount_kobo'] as int),
+            targetDate: DateTime.parse(row['target_date'] as String),
+            isLocked: (row['is_locked'] as int) == 1,
+          ),
+        )
+        .toList();
+  }
+
+  Future<void> insertOrUpdateSavingsGoal(SavingsGoalModel goal) async {
+    final db = await database;
+    await db.insert(savingsGoalsTable, {
+      'id': goal.id,
+      'title': goal.title,
+      'target_amount_kobo': goal.targetAmount.kobo,
+      'current_amount_kobo': goal.currentAmount.kobo,
+      'target_date': goal.targetDate.toIso8601String(),
+      'is_locked': goal.isLocked ? 1 : 0,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<SavingsGoalModel?> contributeToSavingsGoal(
+    String goalId,
+    int amountKobo,
+  ) async {
+    final db = await database;
+    await db.rawUpdate(
+      '''
+      UPDATE $savingsGoalsTable 
+      SET current_amount_kobo = current_amount_kobo + ?
+      WHERE id = ?
+    ''',
+      [amountKobo, goalId],
+    );
+
+    final results = await db.query(
+      savingsGoalsTable,
+      where: 'id = ?',
+      whereArgs: [goalId],
+      limit: 1,
+    );
+    if (results.isEmpty) return null;
+    final row = results.first;
+    return SavingsGoalModel(
+      id: row['id'] as String,
+      title: row['title'] as String,
+      targetAmount: Money.fromKobo(row['target_amount_kobo'] as int),
+      currentAmount: Money.fromKobo(row['current_amount_kobo'] as int),
+      targetDate: DateTime.parse(row['target_date'] as String),
+      isLocked: (row['is_locked'] as int) == 1,
     );
   }
 

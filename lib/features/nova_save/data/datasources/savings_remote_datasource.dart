@@ -10,28 +10,17 @@ abstract class SavingsRemoteDataSource {
 }
 
 class SavingsRemoteDataSourceImpl implements SavingsRemoteDataSource {
-  final List<SavingsGoalModel> _inMemoryGoals = [
-    SavingsGoalModel(
-      id: 'goal_01',
-      title: 'Tech Upgrade Vault',
-      targetAmount: const Money.fromKobo(50000000),
-      currentAmount: const Money.fromKobo(32500000),
-      targetDate: DateTime.now().add(const Duration(days: 90)),
-      isLocked: true,
-    ),
-    SavingsGoalModel(
-      id: 'goal_02',
-      title: 'Emergency Rainy Day',
-      targetAmount: const Money.fromKobo(100000000),
-      currentAmount: const Money.fromKobo(75000000),
-      targetDate: DateTime.now().add(const Duration(days: 180)),
-      isLocked: false,
-    ),
-  ];
+  // Starts completely empty initially until goals are created by user
+  final List<SavingsGoalModel> _inMemoryGoals = [];
+
+  SavingsRemoteDataSourceImpl({List<SavingsGoalModel>? initialGoals}) {
+    if (initialGoals != null) {
+      _inMemoryGoals.addAll(initialGoals);
+    }
+  }
 
   @override
   Future<List<SavingsGoalModel>> fetchSavingsGoals() async {
-    // Simulated remote API latency
     await Future.delayed(const Duration(milliseconds: 200));
     return List.from(_inMemoryGoals);
   }
@@ -40,6 +29,7 @@ class SavingsRemoteDataSourceImpl implements SavingsRemoteDataSource {
   Future<SavingsGoalModel> createGoal(Map<String, dynamic> payload) async {
     await Future.delayed(const Duration(milliseconds: 200));
     final newGoal = SavingsGoalModel.fromJson(payload);
+    _inMemoryGoals.removeWhere((g) => g.id == newGoal.id);
     _inMemoryGoals.add(newGoal);
     return newGoal;
   }
@@ -55,14 +45,24 @@ class SavingsRemoteDataSourceImpl implements SavingsRemoteDataSource {
     final index = _inMemoryGoals.indexWhere((g) => g.id == goalId);
     if (index != -1) {
       final existing = _inMemoryGoals[index];
-      final updated = existing.copyWith(
-        currentAmount: existing.currentAmount + Money.fromKobo(amountKobo),
+      final updated = SavingsGoalModel.fromEntity(
+        existing.copyWith(
+          currentAmount: existing.currentAmount + Money.fromKobo(amountKobo),
+        ),
       );
-      final updatedModel = SavingsGoalModel.fromEntity(updated);
-      _inMemoryGoals[index] = updatedModel;
-      return updatedModel;
+      _inMemoryGoals[index] = updated;
+      return updated;
+    } else {
+      final newGoal = SavingsGoalModel(
+        id: goalId,
+        title: 'Savings Goal',
+        targetAmount: Money.fromKobo(amountKobo * 2),
+        currentAmount: Money.fromKobo(amountKobo),
+        targetDate: DateTime.now().add(const Duration(days: 90)),
+        isLocked: false,
+      );
+      _inMemoryGoals.add(newGoal);
+      return newGoal;
     }
-
-    throw Exception('Savings goal with id $goalId not found');
   }
 }

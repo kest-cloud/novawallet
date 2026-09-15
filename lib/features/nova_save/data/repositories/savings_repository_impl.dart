@@ -1,6 +1,7 @@
 import 'package:nova_wallet_mobile/core/error/failures.dart';
 import 'package:nova_wallet_mobile/core/error/result.dart';
 import 'package:nova_wallet_mobile/core/network/network_info.dart';
+import 'package:nova_wallet_mobile/core/sync/data/datasources/sync_database_helper.dart';
 import 'package:nova_wallet_mobile/core/sync/domain/entities/queued_action.dart';
 import 'package:nova_wallet_mobile/core/sync/sync_engine.dart';
 import 'package:nova_wallet_mobile/features/nova_save/data/datasources/savings_remote_datasource.dart';
@@ -19,22 +20,29 @@ class SavingsRepositoryImpl implements SavingsRepository {
   final NetworkInfo networkInfo;
   final SyncEngine syncEngine;
   final WalletRepository? walletRepository;
+  final SyncDatabaseHelper? dbHelper;
 
   SavingsRepositoryImpl({
     required this.remoteDataSource,
     required this.networkInfo,
     required this.syncEngine,
     this.walletRepository,
+    this.dbHelper,
   }) {
     // Register feature handlers with core SyncEngine
     syncEngine.registerHandler(ActionType.createSavingsGoal, (action) async {
       await remoteDataSource.createGoal(action.payload);
+      final model = SavingsGoalModel.fromJson(action.payload);
+      await dbHelper?.insertOrUpdateSavingsGoal(model);
       return true;
     });
 
     syncEngine.registerHandler(ActionType.contributeSavings, (action) async {
       try {
         await remoteDataSource.contributeToGoal(action.payload);
+        final goalId = action.payload['goal_id'] as String;
+        final amountKobo = action.payload['amount_kobo'] as int;
+        await dbHelper?.contributeToSavingsGoal(goalId, amountKobo);
         await walletRepository?.updateTransactionStatus(
           action.idempotencyKey,
           TransactionStatus.success,
@@ -53,6 +61,11 @@ class SavingsRepositoryImpl implements SavingsRepository {
   @override
   Future<Result<List<SavingsGoal>>> getSavingsGoals() async {
     try {
+      if (dbHelper != null) {
+        final goals = await dbHelper!.getSavingsGoals();
+        return Result.success(goals);
+      }
+
       final goals = await remoteDataSource.fetchSavingsGoals();
       return Result.success(goals);
     } catch (e) {
@@ -83,6 +96,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
     if (isConnected) {
       try {
         final model = await remoteDataSource.createGoal(payload);
+        await dbHelper?.insertOrUpdateSavingsGoal(model);
         return Result.success(
           SavingsActionResult(
             idempotencyKey: request.idempotencyKey,
@@ -106,6 +120,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
       await syncEngine.enqueue(action);
 
       final optimisticGoal = SavingsGoalModel.fromJson(payload);
+      await dbHelper?.insertOrUpdateSavingsGoal(optimisticGoal);
       return Result.success(
         SavingsActionResult(
           idempotencyKey: request.idempotencyKey,
@@ -147,9 +162,16 @@ class SavingsRepositoryImpl implements SavingsRepository {
     );
     await walletRepository?.recordTransaction(tx);
 
+    // 3. Update local persistent goal amount
+    await dbHelper?.contributeToSavingsGoal(
+      request.goalId,
+      request.amount.kobo,
+    );
+
     if (isConnected) {
       try {
         final updatedGoal = await remoteDataSource.contributeToGoal(payload);
+        await dbHelper?.insertOrUpdateSavingsGoal(updatedGoal);
         return Result.success(
           SavingsActionResult(
             idempotencyKey: request.idempotencyKey,

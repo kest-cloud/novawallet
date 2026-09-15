@@ -364,7 +364,61 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
                 const SizedBox(height: 12),
 
                 // Vaults List
-                ...provider.goals.map((goal) => _buildGoalCard(context, goal)),
+                if (provider.goals.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 36,
+                      horizontal: 20,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderLight),
+                    ),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.savings_outlined,
+                            size: 44,
+                            color: AppColors.textSecondaryLight,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No savings vaults yet',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimaryLight,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Create your first savings vault to start saving toward target goals with interest.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondaryLight,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Semantics(
+                            label: 'Create your first savings vault',
+                            button: true,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text('Create First Vault'),
+                              onPressed: () => _showCreateGoalDialog(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  ...provider.goals.map((goal) => _buildGoalCard(context, goal)),
               ],
             ),
           );

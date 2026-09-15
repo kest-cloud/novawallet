@@ -377,5 +377,66 @@ void main() {
         ); // ₦500,000
       },
     );
+
+    testWidgets(
+      'Initial fresh install renders empty state card and creates first vault via empty card action',
+      (WidgetTester tester) async {
+        // Setup provider with empty initial goals list
+        final emptyRemoteDataSource = FakeSavingsRemoteDataSource(goals: []);
+        final emptyRepo = SavingsRepositoryImpl(
+          remoteDataSource: emptyRemoteDataSource,
+          networkInfo: fakeNetworkInfo,
+          syncEngine: syncEngine,
+        );
+        final emptyProvider = NovaSaveProvider(
+          getSavingsGoalsUseCase: GetSavingsGoalsUseCase(emptyRepo),
+          createSavingsGoalUseCase: CreateSavingsGoalUseCase(emptyRepo),
+          contributeToSavingsGoalUseCase: ContributeToSavingsGoalUseCase(
+            emptyRepo,
+          ),
+        );
+
+        await tester.pumpWidget(createTestWidget(provider: emptyProvider));
+        await tester.pumpAndSettle();
+
+        // 1. Assert Empty State is rendered
+        expect(find.text('No savings vaults yet'), findsOneWidget);
+        expect(
+          find.text(
+            'Create your first savings vault to start saving toward target goals with interest.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Total Locked & Active Savings'), findsOneWidget);
+        expect(find.text('₦0.00'), findsOneWidget);
+
+        // 2. Tap 'Create First Vault' button in empty card
+        final createFirstBtn = find.text('Create First Vault');
+        expect(createFirstBtn, findsOneWidget);
+        await tester.tap(createFirstBtn);
+        await tester.pumpAndSettle();
+
+        // 3. Fill and submit the form
+        final nameField = find.widgetWithText(TextFormField, 'Vault Name');
+        final targetField = find.widgetWithText(
+          TextFormField,
+          'Target Amount (₦)',
+        );
+
+        await tester.enterText(nameField, 'House Down Payment');
+        await tester.enterText(targetField, '10000000');
+        await tester.pump();
+
+        final submitBtn = find.text('Create Vault');
+        await tester.tap(submitBtn);
+        await tester.pumpAndSettle();
+
+        // 4. Assert empty state is gone and newly created goal is rendered
+        expect(find.text('No savings vaults yet'), findsNothing);
+        expect(find.text('House Down Payment'), findsOneWidget);
+        expect(find.text('Target: ₦10,000,000.00'), findsOneWidget);
+        expect(find.text('0% achieved'), findsOneWidget);
+      },
+    );
   });
 }
