@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:nova_wallet_mobile/core/money/money.dart';
 import 'package:nova_wallet_mobile/core/theme/app_colors.dart';
+import 'package:nova_wallet_mobile/features/nova_save/domain/entities/savings_goal.dart';
 import 'package:nova_wallet_mobile/features/nova_save/presentation/notifier/nova_save_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -19,15 +21,256 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
     });
   }
 
+  void _showCreateGoalDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    final amountController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 90));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (modalContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Create New Savings Vault',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Set a target amount and lock date to stay disciplined.',
+                      style: TextStyle(
+                        color: AppColors.textSecondaryLight,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextFormField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Vault Name',
+                        hintText: 'e.g. Vacation in Zanzibar',
+                        prefixIcon: Icon(Icons.flag_rounded),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Vault name is required';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: amountController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Target Amount (₦)',
+                        hintText: '0',
+                        prefixText: '₦ ',
+                        prefixIcon: Icon(Icons.savings_rounded),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Target amount is required';
+                        }
+                        final naira = int.tryParse(v.trim());
+                        if (naira == null || naira <= 0) {
+                          return 'Enter a valid positive amount';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    Semantics(
+                      label: 'Submit create savings vault',
+                      button: true,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (formKey.currentState?.validate() ?? false) {
+                            final naira = int.parse(
+                              amountController.text.trim(),
+                            );
+                            final targetMoney = Money.fromNaira(naira);
+                            final provider = context.read<NovaSaveProvider>();
+
+                            final messenger = ScaffoldMessenger.of(context);
+                            Navigator.pop(modalContext);
+                            final success = await provider.createGoal(
+                              title: titleController.text.trim(),
+                              targetAmount: targetMoney,
+                              targetDate: selectedDate,
+                            );
+
+                            if (mounted && success) {
+                              final msg =
+                                  provider.lastActionResult?.message ??
+                                  'Vault created!';
+                              messenger.showSnackBar(
+                                SnackBar(content: Text(msg)),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Create Vault'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showContributeDialog(BuildContext context, SavingsGoal goal) {
+    final amountController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (modalContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Contribute to ${goal.title}',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Target: ${goal.targetAmount.formatToNaira()} • Saved: ${goal.currentAmount.formatToNaira()}',
+                  style: const TextStyle(
+                    color: AppColors.textSecondaryLight,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Contribution Amount (₦)',
+                    hintText: '0',
+                    prefixText: '₦ ',
+                    prefixIcon: Icon(Icons.add_circle_outline_rounded),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Enter contribution amount';
+                    }
+                    final naira = int.tryParse(v.trim());
+                    if (naira == null || naira <= 0) {
+                      return 'Enter a valid positive amount';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  children: [5000, 10000, 25000, 50000].map((presetNaira) {
+                    final presetMoney = Money.fromNaira(presetNaira);
+                    return ActionChip(
+                      label: Text(
+                        '+${presetMoney.formatToNaira(showKobo: false)}',
+                      ),
+                      onPressed: () {
+                        final current =
+                            int.tryParse(amountController.text.trim()) ?? 0;
+                        amountController.text = '${current + presetNaira}';
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+                Semantics(
+                  label: 'Submit contribution to ${goal.title}',
+                  button: true,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (formKey.currentState?.validate() ?? false) {
+                        final naira = int.parse(amountController.text.trim());
+                        final money = Money.fromNaira(naira);
+                        final provider = context.read<NovaSaveProvider>();
+
+                        final messenger = ScaffoldMessenger.of(context);
+                        Navigator.pop(modalContext);
+                        final success = await provider.contributeToGoal(
+                          goalId: goal.id,
+                          amount: money,
+                        );
+
+                        if (mounted && success) {
+                          final msg =
+                              provider.lastActionResult?.message ??
+                              'Contribution added!';
+                          messenger.showSnackBar(SnackBar(content: Text(msg)));
+                        }
+                      }
+                    },
+                    child: const Text('Confirm Contribution'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nova Save'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            onPressed: () {},
+          Semantics(
+            label: 'Create new savings vault',
+            button: true,
+            child: IconButton(
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              onPressed: () => _showCreateGoalDialog(context),
+            ),
           ),
         ],
       ),
@@ -37,7 +280,8 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (provider.status == NovaSaveStatus.error) {
+          if (provider.status == NovaSaveStatus.error &&
+              provider.goals.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -97,17 +341,27 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                Text(
-                  'Your Savings Vaults (${provider.goals.length})',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Your Savings Vaults (${provider.goals.length})',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('New Vault'),
+                      onPressed: () => _showCreateGoalDialog(context),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
 
                 // Vaults List
-                ...provider.goals.map((goal) => _buildGoalCard(goal)),
+                ...provider.goals.map((goal) => _buildGoalCard(context, goal)),
               ],
             ),
           );
@@ -116,10 +370,13 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
     );
   }
 
-  Widget _buildGoalCard(dynamic goal) {
+  Widget _buildGoalCard(BuildContext context, SavingsGoal goal) {
+    // Integer-computed progress percentage strictly from pure integer division
+    final int progressPercent = goal.progressPercentage;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -131,11 +388,13 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                goal.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  goal.title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               if (goal.isLocked)
@@ -167,26 +426,78 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: goal.progressPercentage / 100.0,
-            backgroundColor: AppColors.borderLight,
-            color: AppColors.accent,
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(4),
+          const SizedBox(height: 12),
+
+          // Accessible Progress Bar with Semantics
+          Semantics(
+            label:
+                'Savings progress for ${goal.title}: $progressPercent percent',
+            value: '$progressPercent%',
+            child: _buildIntegerProgressBar(progressPercent),
           ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '${goal.progressPercentage}% achieved',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondaryLight,
+          const SizedBox(height: 8),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Semantics(
+                label: '$progressPercent percent achieved',
+                child: Text(
+                  '$progressPercent% achieved',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: progressPercent >= 100
+                        ? AppColors.accentDark
+                        : AppColors.textSecondaryLight,
+                  ),
+                ),
               ),
-            ),
+              Semantics(
+                label: 'Contribute funds to ${goal.title}',
+                button: true,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.add_circle, size: 16),
+                  label: const Text('Contribute'),
+                  onPressed: () => _showContributeDialog(context, goal),
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildIntegerProgressBar(int progressPercent) {
+    return Container(
+      height: 10,
+      decoration: BoxDecoration(
+        color: AppColors.borderLight,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalWidth = constraints.maxWidth;
+          // Compute filled width: (totalWidth * percent) / 100
+          final filledWidth = (totalWidth * progressPercent) / 100.0;
+
+          return Stack(
+            children: [
+              Container(
+                width: filledWidth.clamp(0.0, totalWidth),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: progressPercent >= 100
+                        ? [const Color(0xFF059669), const Color(0xFF10B981)]
+                        : [AppColors.accentDark, AppColors.accent],
+                  ),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -11,6 +11,17 @@ class SavingsGoalModel extends SavingsGoal {
     super.isLocked = false,
   });
 
+  factory SavingsGoalModel.fromEntity(SavingsGoal entity) {
+    return SavingsGoalModel(
+      id: entity.id,
+      title: entity.title,
+      targetAmount: entity.targetAmount,
+      currentAmount: entity.currentAmount,
+      targetDate: entity.targetDate,
+      isLocked: entity.isLocked,
+    );
+  }
+
   factory SavingsGoalModel.fromJson(Map<String, dynamic> json) {
     return SavingsGoalModel(
       id: json['id'] as String? ?? '',

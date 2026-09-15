@@ -8,6 +8,8 @@ import 'package:nova_wallet_mobile/core/sync/sync_engine.dart';
 import 'package:nova_wallet_mobile/features/nova_save/data/datasources/savings_remote_datasource.dart';
 import 'package:nova_wallet_mobile/features/nova_save/data/repositories/savings_repository_impl.dart';
 import 'package:nova_wallet_mobile/features/nova_save/domain/repositories/savings_repository.dart';
+import 'package:nova_wallet_mobile/features/nova_save/domain/usecases/contribute_to_savings_goal_usecase.dart';
+import 'package:nova_wallet_mobile/features/nova_save/domain/usecases/create_savings_goal_usecase.dart';
 import 'package:nova_wallet_mobile/features/nova_save/domain/usecases/get_savings_goals_usecase.dart';
 import 'package:nova_wallet_mobile/features/nova_save/presentation/notifier/nova_save_provider.dart';
 import 'package:nova_wallet_mobile/features/send_money/data/datasources/transfer_remote_datasource.dart';
@@ -74,7 +76,11 @@ Future<void> initDependencies({
     ),
   );
   sl.registerLazySingleton<SavingsRepository>(
-    () => SavingsRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()),
+    () => SavingsRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+      syncEngine: sl(),
+    ),
   );
 
   // -------------------------------------------------------------
@@ -84,6 +90,8 @@ Future<void> initDependencies({
   sl.registerLazySingleton(() => GetRecentTransactionsUseCase(sl()));
   sl.registerLazySingleton(() => SendMoneyUseCase(sl()));
   sl.registerLazySingleton(() => GetSavingsGoalsUseCase(sl()));
+  sl.registerLazySingleton(() => CreateSavingsGoalUseCase(sl()));
+  sl.registerLazySingleton(() => ContributeToSavingsGoalUseCase(sl()));
 
   // -------------------------------------------------------------
   // Providers (Factory)
@@ -96,7 +104,13 @@ Future<void> initDependencies({
     ),
   );
   sl.registerFactory(() => SendMoneyProvider(sendMoneyUseCase: sl()));
-  sl.registerFactory(() => NovaSaveProvider(getSavingsGoalsUseCase: sl()));
+  sl.registerFactory(
+    () => NovaSaveProvider(
+      getSavingsGoalsUseCase: sl(),
+      createSavingsGoalUseCase: sl(),
+      contributeToSavingsGoalUseCase: sl(),
+    ),
+  );
 
   // Initialize Sync Engine crash recovery & connectivity listener
   await sl<SyncEngine>().init();
