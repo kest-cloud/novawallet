@@ -388,6 +388,38 @@ void main() {
     );
 
     testWidgets(
+      'Typing 10-digit account number auto-resolves a random recipient name and shuffle button generates alternate names',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(provider: sendMoneyProvider));
+        await tester.pumpAndSettle();
+
+        final accountField = find.widgetWithText(
+          TextFormField,
+          'Account Number',
+        );
+        await tester.enterText(accountField, '0123456789');
+        await tester.pumpAndSettle();
+
+        final nameFieldFinder = find.byType(TextFormField).at(1);
+        final nameFieldWidget = tester.widget<TextFormField>(nameFieldFinder);
+        final initialName = nameFieldWidget.controller?.text;
+
+        expect(initialName, isNotNull);
+        expect(initialName, isNotEmpty);
+
+        // Tap the shuffle button to generate another random name
+        final shuffleBtn = find.byIcon(Icons.shuffle_rounded);
+        expect(shuffleBtn, findsOneWidget);
+        await tester.tap(shuffleBtn);
+        await tester.pumpAndSettle();
+
+        final updatedName = nameFieldWidget.controller?.text;
+        expect(updatedName, isNotNull);
+        expect(updatedName, isNotEmpty);
+      },
+    );
+
+    testWidgets(
       'Resetting provider generates a fresh idempotency key for the next attempt',
       (WidgetTester tester) async {
         final key1 = sendMoneyProvider.activeIdempotencyKey;

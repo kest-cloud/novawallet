@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
 import 'package:nova_wallet_mobile/core/theme/app_colors.dart';
@@ -23,6 +24,41 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
 
   String _selectedBankCode = '011';
   String _selectedBankName = 'FirstBank of Nigeria';
+  String _lastResolvedAccountNumber = '';
+
+  static final List<String> _sampleRecipientNames = [
+    'Chioma Chukwu',
+    'Babatunde Fashola',
+    'Fatima Aliko Dangote',
+    'Oluwaseun Adeleke',
+    'Ibrahim Danjuma',
+    'Ngozi Okonjo',
+    'Kelechi Iheanacho',
+    'Zainab Ahmed',
+    'Tunde Bakare',
+    'Aisha Bello',
+    'Folake Solanke',
+    'Damilola Taylor',
+    'Chinedu Okeke',
+    'Halima Abubakar',
+    'Opeoluwa Balogun',
+    'Yusuf Maitama',
+    'Blessing Okagbare',
+    'Kunle Afolayan',
+    'Amaka Eze',
+    'Femi Otedola',
+  ];
+
+  String _resolveRandomRecipientName([String? accountNumber]) {
+    final random = Random();
+    if (accountNumber != null && accountNumber.trim().length >= 10) {
+      final seed =
+          (accountNumber.hashCode ^ DateTime.now().microsecondsSinceEpoch)
+              .abs();
+      return _sampleRecipientNames[seed % _sampleRecipientNames.length];
+    }
+    return _sampleRecipientNames[random.nextInt(_sampleRecipientNames.length)];
+  }
 
   final List<Map<String, String>> _supportedBanks = [
     {'code': '011', 'name': 'FirstBank of Nigeria'},
@@ -53,12 +89,14 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
   }
 
   void _onAccountNumberChanged() {
-    // Simulated auto-name resolution when 10 digits are entered
-    if (_accountController.text.trim().length == 10 &&
-        _nameController.text.isEmpty) {
+    final text = _accountController.text.trim();
+    if (text.length == 10 && text != _lastResolvedAccountNumber) {
+      _lastResolvedAccountNumber = text;
       setState(() {
-        _nameController.text = 'Emeka Olawale Adeyemi';
+        _nameController.text = _resolveRandomRecipientName(text);
       });
+    } else if (text.length < 10) {
+      _lastResolvedAccountNumber = '';
     }
   }
 
@@ -284,10 +322,23 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
             // Account Name
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Account Name',
-                hintText: 'e.g. Emeka Adeyemi',
-                prefixIcon: Icon(Icons.person_outline_rounded),
+                hintText: 'e.g. Chioma Chukwu',
+                prefixIcon: const Icon(Icons.person_outline_rounded),
+                suffixIcon: Semantics(
+                  label: 'Generate random recipient name',
+                  button: true,
+                  child: IconButton(
+                    icon: const Icon(Icons.shuffle_rounded, size: 20),
+                    tooltip: 'Generate random name',
+                    onPressed: () {
+                      setState(() {
+                        _nameController.text = _resolveRandomRecipientName();
+                      });
+                    },
+                  ),
+                ),
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) {
