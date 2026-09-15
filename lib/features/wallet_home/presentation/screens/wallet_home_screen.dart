@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:nova_wallet_mobile/core/constants/route_constants.dart';
 import 'package:nova_wallet_mobile/core/theme/app_colors.dart';
-import 'package:nova_wallet_mobile/features/wallet_home/presentation/providers/wallet_home_provider.dart';
+import 'package:nova_wallet_mobile/features/wallet_home/presentation/notifier/wallet_home_provider.dart';
 
 class WalletHomeScreen extends StatefulWidget {
   const WalletHomeScreen({super.key});

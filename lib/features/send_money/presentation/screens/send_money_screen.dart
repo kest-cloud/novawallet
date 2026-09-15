@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
 import 'package:nova_wallet_mobile/core/theme/app_colors.dart';
-import 'package:nova_wallet_mobile/features/send_money/presentation/providers/send_money_provider.dart';
+import 'package:nova_wallet_mobile/features/send_money/presentation/notifier/send_money_provider.dart';
 import 'package:provider/provider.dart';
 
 class SendMoneyScreen extends StatefulWidget {

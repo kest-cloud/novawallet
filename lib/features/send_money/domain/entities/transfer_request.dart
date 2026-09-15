@@ -18,6 +18,25 @@ class TransferRequest extends Equatable {
     this.reference,
   });
 
+  TransferRequest copyWith({
+    String? recipientAccountNumber,
+    String? recipientBankCode,
+    String? recipientName,
+    Money? amount,
+    String? narration,
+    String? reference,
+  }) {
+    return TransferRequest(
+      recipientAccountNumber:
+          recipientAccountNumber ?? this.recipientAccountNumber,
+      recipientBankCode: recipientBankCode ?? this.recipientBankCode,
+      recipientName: recipientName ?? this.recipientName,
+      amount: amount ?? this.amount,
+      narration: narration ?? this.narration,
+      reference: reference ?? this.reference,
+    );
+  }
+
   @override
   List<Object?> get props => [
     recipientAccountNumber,

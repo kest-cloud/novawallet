@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nova_wallet_mobile/core/theme/app_colors.dart';
-import 'package:nova_wallet_mobile/features/nova_save/presentation/providers/nova_save_provider.dart';
+import 'package:nova_wallet_mobile/features/nova_save/presentation/notifier/nova_save_provider.dart';
 import 'package:provider/provider.dart';
 
 class NovaSaveScreen extends StatefulWidget {

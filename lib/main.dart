@@ -5,9 +5,9 @@ import 'core/constants/route_constants.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
-import 'features/wallet_home/presentation/providers/wallet_home_provider.dart';
-import 'features/send_money/presentation/providers/send_money_provider.dart';
-import 'features/nova_save/presentation/providers/nova_save_provider.dart';
+import 'features/wallet_home/presentation/notifier/wallet_home_provider.dart';
+import 'features/send_money/presentation/notifier/send_money_provider.dart';
+import 'features/nova_save/presentation/notifier/nova_save_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

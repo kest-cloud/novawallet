@@ -1,37 +1,38 @@
 import 'package:nova_wallet_mobile/core/error/failures.dart';
 import 'package:nova_wallet_mobile/core/error/result.dart';
 import 'package:nova_wallet_mobile/core/network/network_info.dart';
-import 'package:nova_wallet_mobile/core/sync/offline_queue_engine.dart';
+import 'package:nova_wallet_mobile/core/sync/domain/entities/queued_action.dart';
+import 'package:nova_wallet_mobile/core/sync/sync_engine.dart';
 import 'package:nova_wallet_mobile/features/send_money/data/datasources/transfer_remote_datasource.dart';
 import 'package:nova_wallet_mobile/features/send_money/data/models/transfer_request_model.dart';
 import 'package:nova_wallet_mobile/features/send_money/domain/entities/transfer_request.dart';
 import 'package:nova_wallet_mobile/features/send_money/domain/repositories/transfer_repository.dart';
+import 'package:uuid/uuid.dart';
 
 class TransferRepositoryImpl implements TransferRepository {
   final TransferRemoteDataSource remoteDataSource;
   final NetworkInfo networkInfo;
-  final OfflineQueueEngine offlineQueueEngine;
+  final SyncEngine syncEngine;
 
   TransferRepositoryImpl({
     required this.remoteDataSource,
     required this.networkInfo,
-    required this.offlineQueueEngine,
+    required this.syncEngine,
   }) {
-    // Register sync handler with shared offline engine
-    offlineQueueEngine.registerHandler('send_money', (item) async {
-      try {
-        final model = TransferRequestModel.fromJson(item.payload);
-        await remoteDataSource.submitTransfer(model);
-        return true;
-      } catch (_) {
-        return false;
-      }
+    // Register action handler with the standalone SyncEngine
+    syncEngine.registerHandler(ActionType.sendMoney, (action) async {
+      final model = TransferRequestModel.fromJson(action.payload);
+      await remoteDataSource.submitTransfer(model);
+      return true;
     });
   }
 
   @override
   Future<Result<String>> executeTransfer(TransferRequest request) async {
-    final model = TransferRequestModel.fromEntity(request);
+    final idempotencyKey = const Uuid().v4();
+    final model = TransferRequestModel.fromEntity(
+      request,
+    ).copyWith(reference: idempotencyKey);
     final isConnected = await networkInfo.isConnected;
 
     if (isConnected) {
@@ -44,17 +45,15 @@ class TransferRepositoryImpl implements TransferRepository {
         );
       }
     } else {
-      // Queue offline for automatic sync
-      final queueItem = QueueItem(
-        id: 'tx_${DateTime.now().millisecondsSinceEpoch}',
-        featureKey: 'send_money',
-        actionType: 'transfer',
+      // Queue offline for automatic sync replay
+      final action = QueuedAction.create(
+        actionType: ActionType.sendMoney,
+        idempotencyKey: idempotencyKey,
         payload: model.toJson(),
-        createdAt: DateTime.now(),
       );
-      await offlineQueueEngine.enqueue(queueItem);
-      return const Result.success(
-        'QUEUED_OFFLINE: Transfer will be processed when connection resumes.',
+      await syncEngine.enqueue(action);
+      return Result.success(
+        'QUEUED_OFFLINE: Transfer with idempotency key $idempotencyKey queued. Will send when back online.',
       );
     }
   }

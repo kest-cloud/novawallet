@@ -22,6 +22,26 @@ class TransferRequestModel extends TransferRequest {
     );
   }
 
+  @override
+  TransferRequestModel copyWith({
+    String? recipientAccountNumber,
+    String? recipientBankCode,
+    String? recipientName,
+    Money? amount,
+    String? narration,
+    String? reference,
+  }) {
+    return TransferRequestModel(
+      recipientAccountNumber:
+          recipientAccountNumber ?? this.recipientAccountNumber,
+      recipientBankCode: recipientBankCode ?? this.recipientBankCode,
+      recipientName: recipientName ?? this.recipientName,
+      amount: amount ?? this.amount,
+      narration: narration ?? this.narration,
+      reference: reference ?? this.reference,
+    );
+  }
+
   factory TransferRequestModel.fromJson(Map<String, dynamic> json) {
     return TransferRequestModel(
       recipientAccountNumber: json['recipient_account_number'] as String? ?? '',
