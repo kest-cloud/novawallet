@@ -35,6 +35,46 @@ class FakeWalletRepository implements WalletRepository {
     fetchTransactionsCallCount++;
     return Result.success(transactions.take(limit).toList());
   }
+
+  @override
+  Future<Result<void>> deductBalance(Money amount) async {
+    balance = WalletBalance(
+      availableBalance: balance.availableBalance - amount,
+      ledgerBalance: balance.ledgerBalance - amount,
+      accountId: balance.accountId,
+      accountNumber: balance.accountNumber,
+      accountName: balance.accountName,
+    );
+    return const Result.success(null);
+  }
+
+  @override
+  Future<Result<void>> recordTransaction(Transaction transaction) async {
+    transactions.insert(0, transaction);
+    return const Result.success(null);
+  }
+
+  @override
+  Future<Result<void>> updateTransactionStatus(
+    String reference,
+    TransactionStatus status,
+  ) async {
+    final idx = transactions.indexWhere((t) => t.reference == reference);
+    if (idx != -1) {
+      final old = transactions[idx];
+      transactions[idx] = Transaction(
+        id: old.id,
+        title: old.title,
+        subtitle: old.subtitle,
+        amount: old.amount,
+        type: old.type,
+        status: status,
+        timestamp: old.timestamp,
+        reference: old.reference,
+      );
+    }
+    return const Result.success(null);
+  }
 }
 
 Widget createTestWidget({
@@ -220,6 +260,68 @@ void main() {
         );
 
         semanticsHandle.dispose();
+      },
+    );
+
+    testWidgets(
+      '5. Empty state & dynamic updates: Shows empty state with 0 transactions, reduces balance and shows pending/completed badges dynamically',
+      (WidgetTester tester) async {
+        final repo = FakeWalletRepository(
+          balance: testBalance,
+          transactions: [], // 0 transactions initially
+        );
+        final provider = WalletHomeProvider(
+          getWalletBalanceUseCase: GetWalletBalanceUseCase(repo),
+          getRecentTransactionsUseCase: GetRecentTransactionsUseCase(repo),
+        );
+
+        await tester.pumpWidget(createTestWidget(provider: provider));
+        await tester.pumpAndSettle();
+
+        // 1. Verify Empty State is displayed
+        expect(find.text('No recent transactions yet'), findsOneWidget);
+        expect(
+          find.text('Transactions and transfers will appear here'),
+          findsOneWidget,
+        );
+        expect(find.text('₦1,250,500.50'), findsOneWidget);
+
+        // 2. Simulate transferring ₦5,000 while offline
+        const transferAmount = Money.fromKobo(500000); // ₦5,000.00
+        await repo.deductBalance(transferAmount);
+        final newTx = Transaction(
+          id: 'tx_new_001',
+          title: 'Transfer to Babatunde Fashola',
+          subtitle: 'GTBank • 0123456789',
+          amount: transferAmount,
+          type: TransactionType.debit,
+          status: TransactionStatus.pending,
+          timestamp: DateTime.now(),
+          reference: 'REF_TEST_001',
+        );
+        await repo.recordTransaction(newTx);
+
+        // Refresh provider
+        await provider.fetchDashboardData();
+        await tester.pumpAndSettle();
+
+        // 3. Verify reduced balance & new transaction item with Pending badge
+        expect(find.text('No recent transactions yet'), findsNothing);
+        expect(find.text('₦1,245,500.50'), findsOneWidget);
+        expect(find.text('Transfer to Babatunde Fashola'), findsOneWidget);
+        expect(find.text('-₦5,000.00'), findsOneWidget);
+        expect(find.text('Pending'), findsOneWidget);
+
+        // 4. Simulate network reconnect & completion
+        await repo.updateTransactionStatus(
+          'REF_TEST_001',
+          TransactionStatus.success,
+        );
+        await provider.fetchDashboardData();
+        await tester.pumpAndSettle();
+
+        // Pending badge is gone, status is success
+        expect(find.text('Pending'), findsNothing);
       },
     );
   });

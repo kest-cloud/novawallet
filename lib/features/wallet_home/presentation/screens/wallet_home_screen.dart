@@ -105,12 +105,34 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                     child: Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: 20.0,
-                        vertical: 24.0,
+                        vertical: 36.0,
                       ),
                       child: Center(
-                        child: Text(
-                          'No recent transactions yet',
-                          style: TextStyle(color: AppColors.textSecondaryLight),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.receipt_long_rounded,
+                              size: 44,
+                              color: AppColors.textSecondaryLight,
+                            ),
+                            SizedBox(height: 10),
+                            Text(
+                              'No recent transactions yet',
+                              style: TextStyle(
+                                color: AppColors.textPrimaryLight,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Transactions and transfers will appear here',
+                              style: TextStyle(
+                                color: AppColors.textSecondaryLight,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -298,8 +320,11 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
             label: 'Send Money',
             semanticsLabel: 'Send money to bank account',
             color: AppColors.primary,
-            onTap: () {
-              Navigator.pushNamed(context, RouteConstants.sendMoney);
+            onTap: () async {
+              await Navigator.pushNamed(context, RouteConstants.sendMoney);
+              if (context.mounted) {
+                context.read<WalletHomeProvider>().fetchDashboardData();
+              }
             },
           ),
         ),
@@ -311,8 +336,11 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
             label: 'Nova Save',
             semanticsLabel: 'Open Nova Save savings vault',
             color: AppColors.accent,
-            onTap: () {
-              Navigator.pushNamed(context, RouteConstants.novaSave);
+            onTap: () async {
+              await Navigator.pushNamed(context, RouteConstants.novaSave);
+              if (context.mounted) {
+                context.read<WalletHomeProvider>().fetchDashboardData();
+              }
             },
           ),
         ),
@@ -383,7 +411,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
     return Semantics(
       key: ValueKey('tx_item_$index'),
       label:
-          '${tx.title}, ${isCredit ? 'credit' : 'debit'} of ${tx.amount.formatToNaira()}, on $dateStr',
+          '${tx.title}, ${tx.status == TransactionStatus.pending ? 'pending' : ''} ${isCredit ? 'credit' : 'debit'} of ${tx.amount.formatToNaira()}, on $dateStr',
       container: true,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -412,14 +440,61 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    tx.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tx.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      if (tx.status == TransactionStatus.pending) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Pending',
+                            style: TextStyle(
+                              color: Color(0xFFD97706),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ] else if (tx.status == TransactionStatus.failed) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Failed',
+                            style: TextStyle(
+                              color: Color(0xFFDC2626),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -447,7 +522,9 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                     fontSize: 14,
                     color: isCredit
                         ? AppColors.accentDark
-                        : AppColors.textPrimaryLight,
+                        : (tx.status == TransactionStatus.pending
+                              ? const Color(0xFFD97706)
+                              : AppColors.textPrimaryLight),
                   ),
                 ),
               ),

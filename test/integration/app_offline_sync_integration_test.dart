@@ -72,6 +72,32 @@ void main() {
         last_error TEXT
       )
     ''');
+    await db.execute('''
+      CREATE TABLE ${SyncDatabaseHelper.transactionsTable} (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        subtitle TEXT NOT NULL,
+        amount_kobo INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        reference TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE ${SyncDatabaseHelper.walletBalanceTable} (
+        account_id TEXT PRIMARY KEY,
+        available_balance_kobo INTEGER NOT NULL,
+        ledger_balance_kobo INTEGER NOT NULL,
+        account_number TEXT NOT NULL,
+        account_name TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      INSERT INTO ${SyncDatabaseHelper.walletBalanceTable} (
+        account_id, available_balance_kobo, ledger_balance_kobo, account_number, account_name
+      ) VALUES ('acc_nova_001', 125050050, 125050050, '0123456789', 'Ademola Afolayan')
+    ''');
     dbHelper = SyncDatabaseHelper(databaseOverride: db);
   });
 
@@ -100,6 +126,7 @@ void main() {
 
         // Render full app
         await tester.pumpWidget(const NovaWalletApp());
+        await Future.delayed(const Duration(milliseconds: 100));
         await tester.pumpAndSettle();
 
         // Verify we are on WalletHomeScreen

@@ -33,9 +33,7 @@ Future<void> initDependencies({
   SavingsRemoteDataSource? savingsRemoteDataSource,
   WalletRemoteDataSource? walletRemoteDataSource,
 }) async {
-  // -------------------------------------------------------------
   // Core Infrastructure
-  // -------------------------------------------------------------
   sl.registerLazySingleton<NetworkInfo>(() => networkInfo ?? NetworkInfoImpl());
   sl.registerLazySingleton<SecureStorageService>(
     () => SecureStorageServiceImpl(),
@@ -52,9 +50,7 @@ Future<void> initDependencies({
     () => SyncEngine(repository: sl(), networkInfo: sl()),
   );
 
-  // -------------------------------------------------------------
   // Data sources
-  // -------------------------------------------------------------
   sl.registerLazySingleton<WalletRemoteDataSource>(
     () => walletRemoteDataSource ?? WalletRemoteDataSourceImpl(),
   );
@@ -65,17 +61,20 @@ Future<void> initDependencies({
     () => savingsRemoteDataSource ?? SavingsRemoteDataSourceImpl(),
   );
 
-  // -------------------------------------------------------------
   // Repositories
-  // -------------------------------------------------------------
   sl.registerLazySingleton<WalletRepository>(
-    () => WalletRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()),
+    () => WalletRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+      dbHelper: sl(),
+    ),
   );
   sl.registerLazySingleton<TransferRepository>(
     () => TransferRepositoryImpl(
       remoteDataSource: sl(),
       networkInfo: sl(),
       syncEngine: sl(),
+      walletRepository: sl(),
     ),
   );
   sl.registerLazySingleton<SavingsRepository>(
@@ -83,12 +82,11 @@ Future<void> initDependencies({
       remoteDataSource: sl(),
       networkInfo: sl(),
       syncEngine: sl(),
+      walletRepository: sl(),
     ),
   );
 
-  // -------------------------------------------------------------
   // Use cases
-  // -------------------------------------------------------------
   sl.registerLazySingleton(() => GetWalletBalanceUseCase(sl()));
   sl.registerLazySingleton(() => GetRecentTransactionsUseCase(sl()));
   sl.registerLazySingleton(() => SendMoneyUseCase(sl()));
@@ -96,9 +94,7 @@ Future<void> initDependencies({
   sl.registerLazySingleton(() => CreateSavingsGoalUseCase(sl()));
   sl.registerLazySingleton(() => ContributeToSavingsGoalUseCase(sl()));
 
-  // -------------------------------------------------------------
   // Providers (Factory)
-  // -------------------------------------------------------------
   sl.registerFactory(
     () => WalletHomeProvider(
       getWalletBalanceUseCase: sl(),

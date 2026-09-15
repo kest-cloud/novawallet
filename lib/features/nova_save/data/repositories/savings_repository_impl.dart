@@ -10,17 +10,21 @@ import 'package:nova_wallet_mobile/features/nova_save/domain/entities/savings_ac
 import 'package:nova_wallet_mobile/features/nova_save/domain/entities/savings_contribution_request.dart';
 import 'package:nova_wallet_mobile/features/nova_save/domain/entities/savings_goal.dart';
 import 'package:nova_wallet_mobile/features/nova_save/domain/repositories/savings_repository.dart';
+import 'package:nova_wallet_mobile/features/wallet_home/domain/entities/transaction.dart';
+import 'package:nova_wallet_mobile/features/wallet_home/domain/repositories/wallet_repository.dart';
 import 'package:uuid/uuid.dart';
 
 class SavingsRepositoryImpl implements SavingsRepository {
   final SavingsRemoteDataSource remoteDataSource;
   final NetworkInfo networkInfo;
   final SyncEngine syncEngine;
+  final WalletRepository? walletRepository;
 
   SavingsRepositoryImpl({
     required this.remoteDataSource,
     required this.networkInfo,
     required this.syncEngine,
+    this.walletRepository,
   }) {
     // Register feature handlers with core SyncEngine
     syncEngine.registerHandler(ActionType.createSavingsGoal, (action) async {
@@ -29,8 +33,20 @@ class SavingsRepositoryImpl implements SavingsRepository {
     });
 
     syncEngine.registerHandler(ActionType.contributeSavings, (action) async {
-      await remoteDataSource.contributeToGoal(action.payload);
-      return true;
+      try {
+        await remoteDataSource.contributeToGoal(action.payload);
+        await walletRepository?.updateTransactionStatus(
+          action.idempotencyKey,
+          TransactionStatus.success,
+        );
+        return true;
+      } catch (e) {
+        await walletRepository?.updateTransactionStatus(
+          action.idempotencyKey,
+          TransactionStatus.failed,
+        );
+        rethrow;
+      }
     });
   }
 
@@ -113,6 +129,24 @@ class SavingsRepositoryImpl implements SavingsRepository {
 
     final isConnected = await networkInfo.isConnected;
 
+    // 1. Deduct wallet balance immediately (optimistic balance reduction)
+    await walletRepository?.deductBalance(request.amount);
+
+    // 2. Record debit transaction in transaction history
+    final tx = Transaction(
+      id: 'TXN_SAVE_${DateTime.now().millisecondsSinceEpoch}',
+      title: 'NovaSave Contribution',
+      subtitle: 'Savings Vault Deposit',
+      amount: request.amount,
+      type: TransactionType.debit,
+      status: isConnected
+          ? TransactionStatus.success
+          : TransactionStatus.pending,
+      timestamp: DateTime.now(),
+      reference: request.idempotencyKey,
+    );
+    await walletRepository?.recordTransaction(tx);
+
     if (isConnected) {
       try {
         final updatedGoal = await remoteDataSource.contributeToGoal(payload);
@@ -126,6 +160,10 @@ class SavingsRepositoryImpl implements SavingsRepository {
           ),
         );
       } catch (e) {
+        await walletRepository?.updateTransactionStatus(
+          request.idempotencyKey,
+          TransactionStatus.failed,
+        );
         return Result.error(
           ServerFailure(message: 'Failed to contribute: ${e.toString()}'),
         );

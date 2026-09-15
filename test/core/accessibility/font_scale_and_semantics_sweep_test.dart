@@ -97,6 +97,20 @@ class FakeWalletRepository implements WalletRepository {
       ),
     ]);
   }
+
+  @override
+  Future<Result<void>> deductBalance(Money amount) async =>
+      const Result.success(null);
+
+  @override
+  Future<Result<void>> recordTransaction(Transaction transaction) async =>
+      const Result.success(null);
+
+  @override
+  Future<Result<void>> updateTransactionStatus(
+    String reference,
+    TransactionStatus status,
+  ) async => const Result.success(null);
 }
 
 class FakeTransferRemoteDataSource implements TransferRemoteDataSource {

@@ -7,22 +7,38 @@ import 'package:nova_wallet_mobile/features/send_money/data/datasources/transfer
 import 'package:nova_wallet_mobile/features/send_money/data/models/transfer_request_model.dart';
 import 'package:nova_wallet_mobile/features/send_money/domain/entities/transfer_request.dart';
 import 'package:nova_wallet_mobile/features/send_money/domain/repositories/transfer_repository.dart';
+import 'package:nova_wallet_mobile/features/wallet_home/domain/entities/transaction.dart';
+import 'package:nova_wallet_mobile/features/wallet_home/domain/repositories/wallet_repository.dart';
 
 class TransferRepositoryImpl implements TransferRepository {
   final TransferRemoteDataSource remoteDataSource;
   final NetworkInfo networkInfo;
   final SyncEngine syncEngine;
+  final WalletRepository? walletRepository;
 
   TransferRepositoryImpl({
     required this.remoteDataSource,
     required this.networkInfo,
     required this.syncEngine,
+    this.walletRepository,
   }) {
     // Register feature action handler with the core standalone SyncEngine
     syncEngine.registerHandler(ActionType.sendMoney, (action) async {
       final model = TransferRequestModel.fromJson(action.payload);
-      await remoteDataSource.submitTransfer(model);
-      return true;
+      try {
+        await remoteDataSource.submitTransfer(model);
+        await walletRepository?.updateTransactionStatus(
+          action.idempotencyKey,
+          TransactionStatus.success,
+        );
+        return true;
+      } catch (e) {
+        await walletRepository?.updateTransactionStatus(
+          action.idempotencyKey,
+          TransactionStatus.failed,
+        );
+        rethrow;
+      }
     });
   }
 
@@ -32,6 +48,28 @@ class TransferRepositoryImpl implements TransferRepository {
   ) async {
     final model = TransferRequestModel.fromEntity(request);
     final isConnected = await networkInfo.isConnected;
+
+    // 1. Deduct wallet balance immediately (optimistic update)
+    await walletRepository?.deductBalance(request.amount);
+
+    // 2. Record debit transaction in persistent history
+    final recipientLabel = request.recipientName.isNotEmpty
+        ? request.recipientName
+        : request.recipientAccountNumber;
+    final tx = Transaction(
+      id: 'TXN_${DateTime.now().millisecondsSinceEpoch}',
+      title: 'Transfer to $recipientLabel',
+      subtitle:
+          '${request.recipientBankName} • ${request.recipientAccountNumber}',
+      amount: request.amount,
+      type: TransactionType.debit,
+      status: isConnected
+          ? TransactionStatus.success
+          : TransactionStatus.pending,
+      timestamp: DateTime.now(),
+      reference: request.idempotencyKey,
+    );
+    await walletRepository?.recordTransaction(tx);
 
     if (isConnected) {
       try {
@@ -45,6 +83,10 @@ class TransferRepositoryImpl implements TransferRepository {
           ),
         );
       } catch (e) {
+        await walletRepository?.updateTransactionStatus(
+          request.idempotencyKey,
+          TransactionStatus.failed,
+        );
         return Result.error(
           ServerFailure(message: 'Transfer failed: ${e.toString()}'),
         );

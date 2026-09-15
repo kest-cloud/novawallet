@@ -47,7 +47,7 @@ class WalletHomeProvider extends ChangeNotifier {
       _syncSubscription = syncEngine!.pendingCountStream.listen((count) {
         if (!_isDisposed) {
           _pendingSyncCount = count;
-          notifyListeners();
+          fetchDashboardData();
         }
       });
       syncEngine!.getPendingCount().then((count) {

@@ -40,6 +40,32 @@ void main() {
         last_error TEXT
       )
     ''');
+    await inMemoryDb.execute('''
+      CREATE TABLE ${SyncDatabaseHelper.transactionsTable} (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        subtitle TEXT NOT NULL,
+        amount_kobo INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        reference TEXT NOT NULL
+      )
+    ''');
+    await inMemoryDb.execute('''
+      CREATE TABLE ${SyncDatabaseHelper.walletBalanceTable} (
+        account_id TEXT PRIMARY KEY,
+        available_balance_kobo INTEGER NOT NULL,
+        ledger_balance_kobo INTEGER NOT NULL,
+        account_number TEXT NOT NULL,
+        account_name TEXT NOT NULL
+      )
+    ''');
+    await inMemoryDb.execute('''
+      INSERT INTO ${SyncDatabaseHelper.walletBalanceTable} (
+        account_id, available_balance_kobo, ledger_balance_kobo, account_number, account_name
+      ) VALUES ('acc_nova_001', 125050050, 125050050, '0123456789', 'Ademola Afolayan')
+    ''');
 
     await di.initDependencies(
       networkInfo: TestNetworkInfo(),
@@ -54,14 +80,15 @@ void main() {
   testWidgets('NovaWalletApp smoke test - renders wallet home screen', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const NovaWalletApp());
-    // Advance timer to complete simulated 300ms remote balance fetch
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      await tester.pumpWidget(const NovaWalletApp());
+      await Future.delayed(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
 
-    expect(find.text('NovaWallet Mobile'), findsOneWidget);
-    expect(find.text('Total Available Balance'), findsOneWidget);
-    expect(find.text('Send Money'), findsOneWidget);
-    expect(find.text('Nova Save'), findsOneWidget);
+      expect(find.text('NovaWallet Mobile'), findsOneWidget);
+      expect(find.text('Total Available Balance'), findsOneWidget);
+      expect(find.text('Send Money'), findsOneWidget);
+      expect(find.text('Nova Save'), findsOneWidget);
+    });
   });
 }
