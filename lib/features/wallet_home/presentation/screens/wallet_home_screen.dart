@@ -333,6 +333,7 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
       button: true,
       excludeSemantics: true,
       child: InkWell(
+        key: Key('action_${label.toLowerCase().replaceAll(' ', '_')}'),
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(

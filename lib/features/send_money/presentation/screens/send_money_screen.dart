@@ -176,14 +176,21 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                         ),
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  steps[index],
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
-                    color: isCurrent
-                        ? AppColors.textPrimaryLight
-                        : AppColors.textSecondaryLight,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      steps[index],
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isCurrent
+                            ? FontWeight.bold
+                            : FontWeight.w500,
+                        color: isCurrent
+                            ? AppColors.textPrimaryLight
+                            : AppColors.textSecondaryLight,
+                      ),
+                    ),
                   ),
                 ),
                 if (index < steps.length - 1)
@@ -229,8 +236,8 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Bank Selector Dropdown
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _selectedBankCode,
               decoration: const InputDecoration(
                 labelText: 'Destination Bank',

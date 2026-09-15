@@ -341,8 +341,11 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
                     Text(
                       'Your Savings Vaults (${provider.goals.length})',
@@ -407,8 +410,10 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Text(
                 'Saved: ${goal.currentAmount.formatToNaira()}',
@@ -437,8 +442,11 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
           ),
           const SizedBox(height: 8),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Semantics(
                 label: '$progressPercent percent achieved',

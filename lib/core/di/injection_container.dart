@@ -29,6 +29,9 @@ final sl = GetIt.instance;
 Future<void> initDependencies({
   NetworkInfo? networkInfo,
   SyncDatabaseHelper? dbHelper,
+  TransferRemoteDataSource? transferRemoteDataSource,
+  SavingsRemoteDataSource? savingsRemoteDataSource,
+  WalletRemoteDataSource? walletRemoteDataSource,
 }) async {
   // -------------------------------------------------------------
   // Core Infrastructure
@@ -53,13 +56,13 @@ Future<void> initDependencies({
   // Data sources
   // -------------------------------------------------------------
   sl.registerLazySingleton<WalletRemoteDataSource>(
-    () => WalletRemoteDataSourceImpl(),
+    () => walletRemoteDataSource ?? WalletRemoteDataSourceImpl(),
   );
   sl.registerLazySingleton<TransferRemoteDataSource>(
-    () => TransferRemoteDataSourceImpl(),
+    () => transferRemoteDataSource ?? TransferRemoteDataSourceImpl(),
   );
   sl.registerLazySingleton<SavingsRemoteDataSource>(
-    () => SavingsRemoteDataSourceImpl(),
+    () => savingsRemoteDataSource ?? SavingsRemoteDataSourceImpl(),
   );
 
   // -------------------------------------------------------------
@@ -111,6 +114,10 @@ Future<void> initDependencies({
       contributeToSavingsGoalUseCase: sl(),
     ),
   );
+
+  // Eagerly resolve repositories that register offline action handlers
+  sl<TransferRepository>();
+  sl<SavingsRepository>();
 
   // Initialize Sync Engine crash recovery & connectivity listener
   await sl<SyncEngine>().init();
