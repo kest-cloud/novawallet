@@ -5,20 +5,22 @@ class TransferRequestModel extends TransferRequest {
   const TransferRequestModel({
     required super.recipientAccountNumber,
     required super.recipientBankCode,
+    super.recipientBankName = 'FirstBank of Nigeria',
     required super.recipientName,
     required super.amount,
     super.narration = '',
-    super.reference,
+    required super.idempotencyKey,
   });
 
   factory TransferRequestModel.fromEntity(TransferRequest entity) {
     return TransferRequestModel(
       recipientAccountNumber: entity.recipientAccountNumber,
       recipientBankCode: entity.recipientBankCode,
+      recipientBankName: entity.recipientBankName,
       recipientName: entity.recipientName,
       amount: entity.amount,
       narration: entity.narration,
-      reference: entity.reference,
+      idempotencyKey: entity.idempotencyKey,
     );
   }
 
@@ -26,19 +28,21 @@ class TransferRequestModel extends TransferRequest {
   TransferRequestModel copyWith({
     String? recipientAccountNumber,
     String? recipientBankCode,
+    String? recipientBankName,
     String? recipientName,
     Money? amount,
     String? narration,
-    String? reference,
+    String? idempotencyKey,
   }) {
     return TransferRequestModel(
       recipientAccountNumber:
           recipientAccountNumber ?? this.recipientAccountNumber,
       recipientBankCode: recipientBankCode ?? this.recipientBankCode,
+      recipientBankName: recipientBankName ?? this.recipientBankName,
       recipientName: recipientName ?? this.recipientName,
       amount: amount ?? this.amount,
       narration: narration ?? this.narration,
-      reference: reference ?? this.reference,
+      idempotencyKey: idempotencyKey ?? this.idempotencyKey,
     );
   }
 
@@ -46,19 +50,22 @@ class TransferRequestModel extends TransferRequest {
     return TransferRequestModel(
       recipientAccountNumber: json['recipient_account_number'] as String? ?? '',
       recipientBankCode: json['recipient_bank_code'] as String? ?? '',
+      recipientBankName:
+          json['recipient_bank_name'] as String? ?? 'FirstBank of Nigeria',
       recipientName: json['recipient_name'] as String? ?? '',
       amount: Money.fromKobo(json['amount_kobo'] as int? ?? 0),
       narration: json['narration'] as String? ?? '',
-      reference: json['reference'] as String?,
+      idempotencyKey: json['idempotency_key'] as String? ?? '',
     );
   }
 
   Map<String, dynamic> toJson() => {
     'recipient_account_number': recipientAccountNumber,
     'recipient_bank_code': recipientBankCode,
+    'recipient_bank_name': recipientBankName,
     'recipient_name': recipientName,
     'amount_kobo': amount.kobo,
     'narration': narration,
-    'reference': reference,
+    'idempotency_key': idempotencyKey,
   };
 }

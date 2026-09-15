@@ -47,6 +47,12 @@ class Money implements Comparable<Money> {
   /// Returns true if this amount is strictly negative (< 0).
   bool get isNegative => kobo < 0;
 
+  /// Returns the whole Naira portion (kobo ~/ 100).
+  int get naira => kobo ~/ 100;
+
+  /// Returns the remaining kobo portion (0..99).
+  int get subKobo => kobo.abs() % 100;
+
   /// Returns the absolute value of this [Money].
   Money abs() => Money._(kobo.abs());
 
