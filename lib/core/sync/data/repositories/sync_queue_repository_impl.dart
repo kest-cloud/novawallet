@@ -108,8 +108,8 @@ class SyncQueueRepositoryImpl implements SyncQueueRepository {
   Future<int> getPendingCount() async {
     final db = await _db;
     final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM ${SyncDatabaseHelper.tableName} WHERE status = ?',
-      [ActionStatus.pending.name],
+      'SELECT COUNT(*) as count FROM ${SyncDatabaseHelper.tableName} WHERE status IN (?, ?)',
+      [ActionStatus.pending.name, ActionStatus.sending.name],
     );
     return Sqflite.firstIntValue(result) ?? 0;
   }

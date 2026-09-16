@@ -4,6 +4,7 @@ import 'package:nova_wallet_mobile/features/wallet_home/domain/entities/transact
 import 'package:provider/provider.dart';
 import 'package:nova_wallet_mobile/core/constants/route_constants.dart';
 import 'package:nova_wallet_mobile/core/theme/app_colors.dart';
+import 'package:nova_wallet_mobile/core/sync/domain/entities/sync_progress.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/presentation/notifier/wallet_home_provider.dart';
 
 class WalletHomeScreen extends StatefulWidget {
@@ -55,7 +56,10 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (provider.pendingSyncCount > 0) ...[
+                        if (provider.isSyncing) ...[
+                          _buildSyncProgressBanner(provider.syncProgress),
+                          const SizedBox(height: 16),
+                        ] else if (provider.pendingSyncCount > 0) ...[
                           _buildOfflineBanner(provider.pendingSyncCount),
                           const SizedBox(height: 16),
                         ],
@@ -154,6 +158,139 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildSyncProgressBanner(SyncProgress progress) {
+    return Semantics(
+      label:
+          'Syncing offline queue: ${progress.currentItemIndex} of ${progress.totalCount}. ${progress.currentActionDescription ?? ''}',
+      container: true,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEEF2FF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFC7D2FE)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6366F1).withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF4F46E5),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Syncing queue (${progress.currentItemIndex} of ${progress.totalCount})',
+                    style: const TextStyle(
+                      color: Color(0xFF312E81),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${(progress.progress * 100).toInt()}%',
+                    style: const TextStyle(
+                      color: Color(0xFF4338CA),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (progress.currentActionDescription != null &&
+                progress.currentActionDescription!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                progress.currentActionDescription!,
+                style: const TextStyle(
+                  color: Color(0xFF4338CA),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 10),
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: progress.progress),
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeInOut,
+              builder: (context, value, _) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: value > 0 ? value : null,
+                    minHeight: 6,
+                    backgroundColor: const Color(0xFFE0E7FF),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF4F46E5),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Background sync active • Non-blocking',
+                  style: TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

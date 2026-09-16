@@ -1,5 +1,6 @@
 import 'package:nova_wallet_mobile/core/error/failures.dart';
 import 'package:nova_wallet_mobile/core/error/result.dart';
+import 'package:nova_wallet_mobile/core/money/money.dart';
 import 'package:nova_wallet_mobile/core/network/network_info.dart';
 import 'package:nova_wallet_mobile/core/sync/data/datasources/sync_database_helper.dart';
 import 'package:nova_wallet_mobile/core/sync/domain/entities/queued_action.dart';
@@ -43,6 +44,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
         final goalId = action.payload['goal_id'] as String;
         final amountKobo = action.payload['amount_kobo'] as int;
         await dbHelper?.contributeToSavingsGoal(goalId, amountKobo);
+        await walletRepository?.deductBalance(Money.fromKobo(amountKobo));
         await walletRepository?.updateTransactionStatus(
           action.idempotencyKey,
           TransactionStatus.success,
@@ -144,10 +146,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
 
     final isConnected = await networkInfo.isConnected;
 
-    // 1. Deduct wallet balance immediately (optimistic balance reduction)
-    await walletRepository?.deductBalance(request.amount);
-
-    // 2. Record debit transaction in transaction history
+    // 1. Record debit transaction in transaction history
     final tx = Transaction(
       id: 'TXN_SAVE_${DateTime.now().millisecondsSinceEpoch}',
       title: 'NovaSave Contribution',
@@ -162,16 +161,16 @@ class SavingsRepositoryImpl implements SavingsRepository {
     );
     await walletRepository?.recordTransaction(tx);
 
-    // 3. Update local persistent goal amount
-    await dbHelper?.contributeToSavingsGoal(
-      request.goalId,
-      request.amount.kobo,
-    );
-
     if (isConnected) {
       try {
         final updatedGoal = await remoteDataSource.contributeToGoal(payload);
         await dbHelper?.insertOrUpdateSavingsGoal(updatedGoal);
+        await dbHelper?.contributeToSavingsGoal(
+          request.goalId,
+          request.amount.kobo,
+        );
+        // Deduct wallet balance once online contribution succeeds
+        await walletRepository?.deductBalance(request.amount);
         return Result.success(
           SavingsActionResult(
             idempotencyKey: request.idempotencyKey,
@@ -191,7 +190,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
         );
       }
     } else {
-      // Offline: Enqueue to standalone SyncEngine
+      // Offline: Enqueue to standalone SyncEngine (do NOT deduct balance while pending)
       final action = QueuedAction.create(
         idempotencyKey: request.idempotencyKey,
         actionType: ActionType.contributeSavings,

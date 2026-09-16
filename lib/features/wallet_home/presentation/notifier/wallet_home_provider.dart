@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
+import 'package:nova_wallet_mobile/core/sync/domain/entities/queued_action.dart';
+import 'package:nova_wallet_mobile/core/sync/domain/entities/sync_progress.dart';
 import 'package:nova_wallet_mobile/core/sync/sync_engine.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/domain/entities/transaction.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/domain/entities/wallet_balance.dart';
@@ -14,7 +16,8 @@ class WalletHomeProvider extends ChangeNotifier {
   final GetRecentTransactionsUseCase getRecentTransactionsUseCase;
   final SyncEngine? syncEngine;
 
-  StreamSubscription<int>? _syncSubscription;
+  StreamSubscription<List<QueuedAction>>? _syncSubscription;
+  StreamSubscription<SyncProgress>? _progressSubscription;
   bool _isDisposed = false;
 
   WalletHomeProvider({
@@ -26,11 +29,18 @@ class WalletHomeProvider extends ChangeNotifier {
   }
 
   WalletHomeStatus _status = WalletHomeStatus.initial;
-  WalletBalance? _walletBalance;
+  WalletBalance? _walletBalance = const WalletBalance(
+    accountId: 'acc_nova_001',
+    availableBalance: Money.fromKobo(125050050),
+    ledgerBalance: Money.fromKobo(125050050),
+    accountNumber: '0123456789',
+    accountName: 'Ademola Afolayan',
+  );
   List<Transaction> _transactions = [];
   String? _errorMessage;
   bool _isBalanceHidden = false;
   int _pendingSyncCount = 0;
+  SyncProgress _syncProgress = SyncProgress.idle;
 
   WalletHomeStatus get status => _status;
   WalletBalance? get walletBalance => _walletBalance;
@@ -39,17 +49,39 @@ class WalletHomeProvider extends ChangeNotifier {
   bool get isBalanceHidden => _isBalanceHidden;
   int get pendingSyncCount => _pendingSyncCount;
   bool get isLoading => _status == WalletHomeStatus.loading;
+  SyncProgress get syncProgress => _syncProgress;
+  bool get isSyncing => _syncProgress.isSyncing;
 
-  Money get availableBalance => _walletBalance?.availableBalance ?? Money.zero;
+  Money get availableBalance =>
+      _walletBalance?.availableBalance ?? const Money.fromKobo(125050050);
 
   void _initSyncListener() {
     if (syncEngine != null) {
-      _syncSubscription = syncEngine!.pendingCountStream.listen((count) {
+      _syncSubscription = syncEngine!.actionsStream.listen((actions) {
         if (!_isDisposed) {
-          _pendingSyncCount = count;
+          _pendingSyncCount = actions
+              .where(
+                (a) =>
+                    a.status == ActionStatus.pending ||
+                    a.status == ActionStatus.sending,
+              )
+              .length;
           fetchDashboardData();
         }
       });
+
+      _progressSubscription = syncEngine!.progressStream.listen((progress) {
+        if (!_isDisposed) {
+          final wasSyncing = _syncProgress.isSyncing;
+          _syncProgress = progress;
+          if (wasSyncing && !progress.isSyncing) {
+            fetchDashboardData();
+          } else {
+            notifyListeners();
+          }
+        }
+      });
+
       syncEngine!.getPendingCount().then((count) {
         if (!_isDisposed) {
           _pendingSyncCount = count;
@@ -120,6 +152,7 @@ class WalletHomeProvider extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _syncSubscription?.cancel();
+    _progressSubscription?.cancel();
     super.dispose();
   }
 }

@@ -98,8 +98,13 @@ class FakeSyncQueueRepository implements SyncQueueRepository {
   }
 
   @override
-  Future<int> getPendingCount() async =>
-      _actions.where((a) => a.status == ActionStatus.pending).length;
+  Future<int> getPendingCount() async => _actions
+      .where(
+        (a) =>
+            a.status == ActionStatus.pending ||
+            a.status == ActionStatus.sending,
+      )
+      .length;
 
   @override
   Stream<List<QueuedAction>> watchActions() => _actionsController.stream;
@@ -113,7 +118,13 @@ class FakeSyncQueueRepository implements SyncQueueRepository {
     }
     if (!_pendingCountController.isClosed) {
       _pendingCountController.add(
-        _actions.where((a) => a.status == ActionStatus.pending).length,
+        _actions
+            .where(
+              (a) =>
+                  a.status == ActionStatus.pending ||
+                  a.status == ActionStatus.sending,
+            )
+            .length,
       );
     }
   }

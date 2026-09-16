@@ -11,7 +11,7 @@ class SyncDatabaseHelper {
   static const String walletBalanceTable = 'wallet_balance';
   static const String savingsGoalsTable = 'savings_goals';
   static const String dbFileName = 'novawallet_sync_queue.db';
-  static const int dbVersion = 1;
+  static const int dbVersion = 2;
 
   Database? _db;
 
@@ -27,13 +27,26 @@ class SyncDatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, dbFileName);
 
-    return await openDatabase(path, version: dbVersion, onCreate: _onCreate);
+    return await openDatabase(
+      path,
+      version: dbVersion,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    await createAllTables(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    await createAllTables(db);
+  }
+
+  static Future<void> createAllTables(Database db) async {
     // 1. Queued Actions Table for offline-sync
     await db.execute('''
-      CREATE TABLE $tableName (
+      CREATE TABLE IF NOT EXISTS $tableName (
         id TEXT PRIMARY KEY,
         idempotency_key TEXT NOT NULL UNIQUE,
         action_type TEXT NOT NULL,
@@ -46,12 +59,12 @@ class SyncDatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_status_created_at ON $tableName (status, created_at ASC)
+      CREATE INDEX IF NOT EXISTS idx_status_created_at ON $tableName (status, created_at ASC)
     ''');
 
     // 2. Persistent Transactions Table
     await db.execute('''
-      CREATE TABLE $transactionsTable (
+      CREATE TABLE IF NOT EXISTS $transactionsTable (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         subtitle TEXT NOT NULL,
@@ -64,12 +77,12 @@ class SyncDatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE INDEX idx_tx_timestamp ON $transactionsTable (timestamp DESC)
+      CREATE INDEX IF NOT EXISTS idx_tx_timestamp ON $transactionsTable (timestamp DESC)
     ''');
 
     // 3. Persistent Wallet Balance Table
     await db.execute('''
-      CREATE TABLE $walletBalanceTable (
+      CREATE TABLE IF NOT EXISTS $walletBalanceTable (
         account_id TEXT PRIMARY KEY,
         available_balance_kobo INTEGER NOT NULL,
         ledger_balance_kobo INTEGER NOT NULL,
@@ -80,7 +93,7 @@ class SyncDatabaseHelper {
 
     // 4. Persistent Savings Goals Table (starts empty initially)
     await db.execute('''
-      CREATE TABLE $savingsGoalsTable (
+      CREATE TABLE IF NOT EXISTS $savingsGoalsTable (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         target_amount_kobo INTEGER NOT NULL,

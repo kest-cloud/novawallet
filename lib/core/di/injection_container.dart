@@ -47,7 +47,11 @@ Future<void> initDependencies({
     () => SyncQueueRepositoryImpl(dbHelper: sl()),
   );
   sl.registerLazySingleton<SyncEngine>(
-    () => SyncEngine(repository: sl(), networkInfo: sl()),
+    () => SyncEngine(
+      repository: sl(),
+      networkInfo: sl(),
+      syncStepDelay: const Duration(milliseconds: 2000),
+    ),
   );
 
   // Data sources

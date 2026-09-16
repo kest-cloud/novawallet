@@ -27,6 +27,7 @@ class TransferRepositoryImpl implements TransferRepository {
       final model = TransferRequestModel.fromJson(action.payload);
       try {
         await remoteDataSource.submitTransfer(model);
+        await walletRepository?.deductBalance(model.amount);
         await walletRepository?.updateTransactionStatus(
           action.idempotencyKey,
           TransactionStatus.success,
@@ -49,10 +50,7 @@ class TransferRepositoryImpl implements TransferRepository {
     final model = TransferRequestModel.fromEntity(request);
     final isConnected = await networkInfo.isConnected;
 
-    // 1. Deduct wallet balance immediately (optimistic update)
-    await walletRepository?.deductBalance(request.amount);
-
-    // 2. Record debit transaction in persistent history
+    // 1. Record debit transaction in persistent history
     final recipientLabel = request.recipientName.isNotEmpty
         ? request.recipientName
         : request.recipientAccountNumber;
@@ -74,6 +72,8 @@ class TransferRepositoryImpl implements TransferRepository {
     if (isConnected) {
       try {
         final reference = await remoteDataSource.submitTransfer(model);
+        // Deduct wallet balance once online transfer is confirmed
+        await walletRepository?.deductBalance(request.amount);
         return Result.success(
           TransferSubmissionResult(
             idempotencyKey: request.idempotencyKey,
@@ -92,7 +92,7 @@ class TransferRepositoryImpl implements TransferRepository {
         );
       }
     } else {
-      // Offline: Enqueue action via core sync engine
+      // Offline: Enqueue action via core sync engine (do NOT deduct balance while pending)
       final action = QueuedAction.create(
         idempotencyKey: request.idempotencyKey,
         actionType: ActionType.sendMoney,

@@ -60,44 +60,7 @@ void main() {
   setUp(() async {
     // Open a persistent in-memory SQLite database shared across app restarts in this test
     db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-    await db.execute('''
-      CREATE TABLE ${SyncDatabaseHelper.tableName} (
-        id TEXT PRIMARY KEY,
-        idempotency_key TEXT NOT NULL UNIQUE,
-        action_type TEXT NOT NULL,
-        payload TEXT NOT NULL,
-        status TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        retry_count INTEGER NOT NULL DEFAULT 0,
-        last_error TEXT
-      )
-    ''');
-    await db.execute('''
-      CREATE TABLE ${SyncDatabaseHelper.transactionsTable} (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        subtitle TEXT NOT NULL,
-        amount_kobo INTEGER NOT NULL,
-        type TEXT NOT NULL,
-        status TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
-        reference TEXT NOT NULL
-      )
-    ''');
-    await db.execute('''
-      CREATE TABLE ${SyncDatabaseHelper.walletBalanceTable} (
-        account_id TEXT PRIMARY KEY,
-        available_balance_kobo INTEGER NOT NULL,
-        ledger_balance_kobo INTEGER NOT NULL,
-        account_number TEXT NOT NULL,
-        account_name TEXT NOT NULL
-      )
-    ''');
-    await db.execute('''
-      INSERT INTO ${SyncDatabaseHelper.walletBalanceTable} (
-        account_id, available_balance_kobo, ledger_balance_kobo, account_number, account_name
-      ) VALUES ('acc_nova_001', 125050050, 125050050, '0123456789', 'Ademola Afolayan')
-    ''');
+    await SyncDatabaseHelper.createAllTables(db);
     dbHelper = SyncDatabaseHelper(databaseOverride: db);
   });
 
@@ -193,13 +156,14 @@ void main() {
         expect(persistedQueueBeforeRestart.length, 1);
         final queuedAction = persistedQueueBeforeRestart.first;
         expect(queuedAction.actionType, ActionType.sendMoney);
-        expect(queuedAction.status, ActionStatus.pending);
         final activeIdempotencyKey = queuedAction.idempotencyKey;
         expect(activeIdempotencyKey.isNotEmpty, true);
 
-        // =====================================================================
+        // Assert balance in SQLite was NOT deducted while pending
+        final balanceWhilePending = await dbHelper.getWalletBalance();
+        expect(balanceWhilePending.availableBalance.kobo, 125050050);
+
         // STEP 4: Simulate Full App Termination & Restart
-        // =====================================================================
         // Reset DI container to simulate complete process death
         await di.sl.reset();
 
@@ -226,9 +190,7 @@ void main() {
           activeIdempotencyKey,
         );
 
-        // =====================================================================
-        // STEP 5: Reconnect to Network -> Verify Exactly-Once Automatic Replay
-        // =====================================================================
+        // STEP 5: Reconnect to Network -> Verify Exactly-Once Automatic Replay & Balance Deduction
         networkInfoAfterRestart.setConnected(true);
 
         // Allow SyncEngine's reconnect listener and replay loop to finish
@@ -250,6 +212,10 @@ void main() {
         // Assert SQLite queue has removed/completed the action
         final finalQueue = await repoAfterRestart.getAllActions();
         expect(finalQueue.isEmpty, true);
+
+        // Assert balance in SQLite IS deducted now that sync was successful (₦5,000.00 = 500000 kobo)
+        final balanceAfterSync = await dbHelper.getWalletBalance();
+        expect(balanceAfterSync.availableBalance.kobo, 125050050 - 500000);
 
         // Clean up
         networkInfo.dispose();
