@@ -1,10 +1,14 @@
 import 'package:get_it/get_it.dart';
 import 'package:nova_wallet_mobile/core/network/network_info.dart';
+import 'package:nova_wallet_mobile/core/notifications/notification_service.dart';
 import 'package:nova_wallet_mobile/core/storage/secure_storage_service.dart';
 import 'package:nova_wallet_mobile/core/sync/data/datasources/sync_database_helper.dart';
 import 'package:nova_wallet_mobile/core/sync/data/repositories/sync_queue_repository_impl.dart';
 import 'package:nova_wallet_mobile/core/sync/domain/repositories/sync_queue_repository.dart';
 import 'package:nova_wallet_mobile/core/sync/sync_engine.dart';
+import 'package:nova_wallet_mobile/features/notifications/data/repositories/notification_repository_impl.dart';
+import 'package:nova_wallet_mobile/features/notifications/domain/repositories/notification_repository.dart';
+import 'package:nova_wallet_mobile/features/notifications/presentation/notifier/notification_provider.dart';
 import 'package:nova_wallet_mobile/features/nova_save/data/datasources/savings_remote_datasource.dart';
 import 'package:nova_wallet_mobile/features/nova_save/data/repositories/savings_repository_impl.dart';
 import 'package:nova_wallet_mobile/features/nova_save/domain/repositories/savings_repository.dart';
@@ -32,11 +36,15 @@ Future<void> initDependencies({
   TransferRemoteDataSource? transferRemoteDataSource,
   SavingsRemoteDataSource? savingsRemoteDataSource,
   WalletRemoteDataSource? walletRemoteDataSource,
+  NotificationRepository? notificationRepository,
 }) async {
   // Core Infrastructure
   sl.registerLazySingleton<NetworkInfo>(() => networkInfo ?? NetworkInfoImpl());
   sl.registerLazySingleton<SecureStorageService>(
     () => SecureStorageServiceImpl(),
+  );
+  sl.registerLazySingleton<NotificationService>(
+    () => NotificationService(repository: sl()),
   );
 
   // SQLite Offline Action Queue Database & Repository
@@ -79,6 +87,7 @@ Future<void> initDependencies({
       networkInfo: sl(),
       syncEngine: sl(),
       walletRepository: sl(),
+      notificationService: sl(),
     ),
   );
   sl.registerLazySingleton<SavingsRepository>(
@@ -88,7 +97,12 @@ Future<void> initDependencies({
       syncEngine: sl(),
       walletRepository: sl(),
       dbHelper: sl(),
+      notificationService: sl(),
     ),
+  );
+
+  sl.registerLazySingleton<NotificationRepository>(
+    () => notificationRepository ?? NotificationRepositoryImpl(dbHelper: sl()),
   );
 
   // Use cases
@@ -115,6 +129,7 @@ Future<void> initDependencies({
       contributeToSavingsGoalUseCase: sl(),
     ),
   );
+  sl.registerFactory(() => NotificationProvider(repository: sl()));
 
   // Eagerly resolve repositories that register offline action handlers
   sl<TransferRepository>();

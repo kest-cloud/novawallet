@@ -1,6 +1,7 @@
 import 'package:nova_wallet_mobile/core/error/failures.dart';
 import 'package:nova_wallet_mobile/core/error/result.dart';
 import 'package:nova_wallet_mobile/core/network/network_info.dart';
+import 'package:nova_wallet_mobile/core/notifications/notification_service.dart';
 import 'package:nova_wallet_mobile/core/sync/domain/entities/queued_action.dart';
 import 'package:nova_wallet_mobile/core/sync/sync_engine.dart';
 import 'package:nova_wallet_mobile/features/send_money/data/datasources/transfer_remote_datasource.dart';
@@ -15,12 +16,14 @@ class TransferRepositoryImpl implements TransferRepository {
   final NetworkInfo networkInfo;
   final SyncEngine syncEngine;
   final WalletRepository? walletRepository;
+  final NotificationService? notificationService;
 
   TransferRepositoryImpl({
     required this.remoteDataSource,
     required this.networkInfo,
     required this.syncEngine,
     this.walletRepository,
+    this.notificationService,
   }) {
     // Register feature action handler with the core standalone SyncEngine
     syncEngine.registerHandler(ActionType.sendMoney, (action) async {
@@ -32,11 +35,24 @@ class TransferRepositoryImpl implements TransferRepository {
           action.idempotencyKey,
           TransactionStatus.success,
         );
+        await notificationService?.notifyTransferSynced(
+          idempotencyKey: action.idempotencyKey,
+          amountKobo: model.amount.kobo,
+          recipientName: model.recipientName,
+          accountNumber: model.recipientAccountNumber,
+          bankName: model.recipientBankName,
+        );
         return true;
       } catch (e) {
         await walletRepository?.updateTransactionStatus(
           action.idempotencyKey,
           TransactionStatus.failed,
+        );
+        await notificationService?.notifyTransferFailed(
+          idempotencyKey: action.idempotencyKey,
+          amountKobo: model.amount.kobo,
+          recipientName: model.recipientName,
+          error: e.toString(),
         );
         rethrow;
       }
@@ -100,6 +116,15 @@ class TransferRepositoryImpl implements TransferRepository {
       );
       await syncEngine.enqueue(action);
 
+      // Record pending transfer notification
+      await notificationService?.notifyTransferPending(
+        idempotencyKey: request.idempotencyKey,
+        amountKobo: request.amount.kobo,
+        recipientName: request.recipientName,
+        accountNumber: request.recipientAccountNumber,
+        bankName: request.recipientBankName,
+      );
+
       return Result.success(
         TransferSubmissionResult(
           idempotencyKey: request.idempotencyKey,
@@ -111,3 +136,4 @@ class TransferRepositoryImpl implements TransferRepository {
     }
   }
 }
+

@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
+import 'package:nova_wallet_mobile/features/notifications/data/models/notification_model.dart';
 import 'package:nova_wallet_mobile/features/nova_save/data/models/savings_goal_model.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/data/models/transaction_model.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/data/models/wallet_balance_model.dart';
@@ -10,8 +11,9 @@ class SyncDatabaseHelper {
   static const String transactionsTable = 'transactions';
   static const String walletBalanceTable = 'wallet_balance';
   static const String savingsGoalsTable = 'savings_goals';
+  static const String notificationsTable = 'notifications';
   static const String dbFileName = 'novawallet_sync_queue.db';
-  static const int dbVersion = 2;
+  static const int dbVersion = 3;
 
   Database? _db;
 
@@ -101,6 +103,23 @@ class SyncDatabaseHelper {
         target_date TEXT NOT NULL,
         is_locked INTEGER NOT NULL
       )
+    ''');
+
+    // 5. Persistent Notifications Table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $notificationsTable (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        type TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        is_read INTEGER NOT NULL DEFAULT 0,
+        payload TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_notif_timestamp ON $notificationsTable (timestamp DESC)
     ''');
 
     // Seed initial starting balance on fresh install (₦1,250,500.50) with 0 transactions & 0 goals
@@ -264,6 +283,64 @@ class SyncDatabaseHelper {
     );
   }
 
+  // -------------------------------------------------------------
+  // Notifications Operations
+  // -------------------------------------------------------------
+  Future<List<NotificationModel>> getNotifications({int limit = 50}) async {
+    final db = await database;
+    final results = await db.query(
+      notificationsTable,
+      orderBy: 'timestamp DESC',
+      limit: limit,
+    );
+    return results.map((row) => NotificationModel.fromMap(row)).toList();
+  }
+
+  Future<void> insertNotification(NotificationModel notification) async {
+    final db = await database;
+    await db.insert(
+      notificationsTable,
+      notification.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> markNotificationAsRead(String id) async {
+    final db = await database;
+    await db.update(
+      notificationsTable,
+      {'is_read': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> markAllNotificationsAsRead() async {
+    final db = await database;
+    await db.update(
+      notificationsTable,
+      {'is_read': 1},
+      where: 'is_read = ?',
+      whereArgs: [0],
+    );
+  }
+
+  Future<int> getUnreadNotificationsCount() async {
+    final db = await database;
+    final results = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM $notificationsTable WHERE is_read = 0',
+    );
+    if (results.isNotEmpty) {
+      return Sqflite.firstIntValue(results) ?? 0;
+    }
+    return 0;
+  }
+
+  Future<void> clearAllNotifications() async {
+    final db = await database;
+    await db.delete(notificationsTable);
+  }
+
   Future<void> close() async {
     final db = _db;
     if (db != null && db.isOpen) {
@@ -272,3 +349,4 @@ class SyncDatabaseHelper {
     }
   }
 }
+

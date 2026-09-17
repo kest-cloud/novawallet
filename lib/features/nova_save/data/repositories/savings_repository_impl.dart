@@ -2,6 +2,7 @@ import 'package:nova_wallet_mobile/core/error/failures.dart';
 import 'package:nova_wallet_mobile/core/error/result.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
 import 'package:nova_wallet_mobile/core/network/network_info.dart';
+import 'package:nova_wallet_mobile/core/notifications/notification_service.dart';
 import 'package:nova_wallet_mobile/core/sync/data/datasources/sync_database_helper.dart';
 import 'package:nova_wallet_mobile/core/sync/domain/entities/queued_action.dart';
 import 'package:nova_wallet_mobile/core/sync/sync_engine.dart';
@@ -22,6 +23,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
   final SyncEngine syncEngine;
   final WalletRepository? walletRepository;
   final SyncDatabaseHelper? dbHelper;
+  final NotificationService? notificationService;
 
   SavingsRepositoryImpl({
     required this.remoteDataSource,
@@ -29,12 +31,19 @@ class SavingsRepositoryImpl implements SavingsRepository {
     required this.syncEngine,
     this.walletRepository,
     this.dbHelper,
+    this.notificationService,
   }) {
     // Register feature handlers with core SyncEngine
     syncEngine.registerHandler(ActionType.createSavingsGoal, (action) async {
       await remoteDataSource.createGoal(action.payload);
       final model = SavingsGoalModel.fromJson(action.payload);
       await dbHelper?.insertOrUpdateSavingsGoal(model);
+      await notificationService?.notifySavingsGoalCreated(
+        goalId: model.id,
+        title: model.title,
+        targetAmountKobo: model.targetAmount.kobo,
+        isOffline: false,
+      );
       return true;
     });
 
@@ -48,6 +57,12 @@ class SavingsRepositoryImpl implements SavingsRepository {
         await walletRepository?.updateTransactionStatus(
           action.idempotencyKey,
           TransactionStatus.success,
+        );
+        await notificationService?.notifySavingsContributed(
+          goalId: goalId,
+          goalTitle: 'NovaSave Vault',
+          amountKobo: amountKobo,
+          isOffline: false,
         );
         return true;
       } catch (e) {
@@ -99,6 +114,12 @@ class SavingsRepositoryImpl implements SavingsRepository {
       try {
         final model = await remoteDataSource.createGoal(payload);
         await dbHelper?.insertOrUpdateSavingsGoal(model);
+        await notificationService?.notifySavingsGoalCreated(
+          goalId: model.id,
+          title: model.title,
+          targetAmountKobo: model.targetAmount.kobo,
+          isOffline: false,
+        );
         return Result.success(
           SavingsActionResult(
             idempotencyKey: request.idempotencyKey,
@@ -123,6 +144,14 @@ class SavingsRepositoryImpl implements SavingsRepository {
 
       final optimisticGoal = SavingsGoalModel.fromJson(payload);
       await dbHelper?.insertOrUpdateSavingsGoal(optimisticGoal);
+
+      await notificationService?.notifySavingsGoalCreated(
+        goalId: optimisticGoal.id,
+        title: optimisticGoal.title,
+        targetAmountKobo: optimisticGoal.targetAmount.kobo,
+        isOffline: true,
+      );
+
       return Result.success(
         SavingsActionResult(
           idempotencyKey: request.idempotencyKey,
@@ -171,6 +200,14 @@ class SavingsRepositoryImpl implements SavingsRepository {
         );
         // Deduct wallet balance once online contribution succeeds
         await walletRepository?.deductBalance(request.amount);
+
+        await notificationService?.notifySavingsContributed(
+          goalId: request.goalId,
+          goalTitle: updatedGoal.title,
+          amountKobo: request.amount.kobo,
+          isOffline: false,
+        );
+
         return Result.success(
           SavingsActionResult(
             idempotencyKey: request.idempotencyKey,
@@ -197,6 +234,13 @@ class SavingsRepositoryImpl implements SavingsRepository {
         payload: payload,
       );
       await syncEngine.enqueue(action);
+
+      await notificationService?.notifySavingsContributed(
+        goalId: request.goalId,
+        goalTitle: 'NovaSave Vault',
+        amountKobo: request.amount.kobo,
+        isOffline: true,
+      );
 
       return Result.success(
         SavingsActionResult(

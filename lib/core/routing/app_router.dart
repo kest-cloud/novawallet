@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nova_wallet_mobile/core/constants/route_constants.dart';
+import 'package:nova_wallet_mobile/features/notifications/presentation/screens/notification_list_screen.dart';
 import 'package:nova_wallet_mobile/features/nova_save/presentation/screens/nova_save_screen.dart';
 import 'package:nova_wallet_mobile/features/send_money/presentation/screens/send_money_screen.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/presentation/screens/wallet_home_screen.dart';
@@ -23,6 +24,12 @@ class AppRouter {
       case RouteConstants.novaSave:
         return MaterialPageRoute(
           builder: (_) => const NovaSaveScreen(),
+          settings: settings,
+        );
+
+      case RouteConstants.notifications:
+        return MaterialPageRoute(
+          builder: (_) => const NotificationListScreen(),
           settings: settings,
         );
 

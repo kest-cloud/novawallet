@@ -1,5 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:nova_wallet_mobile/core/di/injection_container.dart' as di;
+import 'package:nova_wallet_mobile/core/notifications/notification_service.dart';
+import 'package:nova_wallet_mobile/features/notifications/presentation/notifier/notification_provider.dart';
 import 'package:nova_wallet_mobile/features/wallet_home/domain/entities/transaction.dart';
 import 'package:provider/provider.dart';
 import 'package:nova_wallet_mobile/core/constants/route_constants.dart';
@@ -15,12 +19,77 @@ class WalletHomeScreen extends StatefulWidget {
 }
 
 class _WalletHomeScreenState extends State<WalletHomeScreen> {
+  StreamSubscription<InAppAlert>? _alertSub;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WalletHomeProvider>().fetchDashboardData();
+      try {
+        context.read<NotificationProvider>().loadNotifications();
+      } catch (_) {}
     });
+
+    try {
+      if (di.sl.isRegistered<NotificationService>()) {
+        _alertSub = di.sl<NotificationService>().inAppAlerts.listen((alert) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: const Color(0xFF0F172A),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFF10B981), width: 1.2),
+                ),
+                content: Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF10B981),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            alert.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Text(
+                            alert.message,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _alertSub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -29,13 +98,73 @@ class _WalletHomeScreenState extends State<WalletHomeScreen> {
       appBar: AppBar(
         title: const Text('NovaWallet Mobile'),
         actions: [
-          Semantics(
-            label: 'View notifications',
-            button: true,
-            child: IconButton(
-              icon: const Icon(Icons.notifications_none_rounded),
-              onPressed: () {},
-            ),
+          Builder(
+            builder: (context) {
+              NotificationProvider? notifProvider;
+              try {
+                notifProvider = context.watch<NotificationProvider>();
+              } catch (_) {
+                notifProvider = null;
+              }
+              final unread = notifProvider?.unreadCount ?? 0;
+              return Semantics(
+                label: 'View notifications',
+                button: true,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        unread > 0
+                            ? Icons.notifications_rounded
+                            : Icons.notifications_none_rounded,
+                      ),
+                      onPressed: () async {
+                        await Navigator.pushNamed(
+                          context,
+                          RouteConstants.notifications,
+                        );
+                        if (context.mounted && notifProvider != null) {
+                          notifProvider.loadNotifications();
+                        }
+                      },
+                    ),
+                    if (unread > 0)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: IgnorePointer(
+                          child: Container(
+                            key: const ValueKey('notification_badge_counter'),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.error,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              unread > 99 ? '99+' : '$unread',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                height: 1.0,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
