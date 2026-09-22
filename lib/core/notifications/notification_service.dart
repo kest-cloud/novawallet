@@ -63,6 +63,9 @@ class NotificationService {
     required String accountNumber,
     required String bankName,
   }) async {
+    // Remove the prior pending notification so the pending queue is cleanly resolved
+    await repository.removePendingNotification(idempotencyKey);
+
     final amountStr = Money.fromKobo(amountKobo).formatToNaira();
     final recipient = recipientName.isNotEmpty ? recipientName : accountNumber;
     final item = NotificationItem(
@@ -96,6 +99,9 @@ class NotificationService {
     required String recipientName,
     required String error,
   }) async {
+    // Remove the prior pending notification so it does not linger in pending list
+    await repository.removePendingNotification(idempotencyKey);
+
     final amountStr = Money.fromKobo(amountKobo).formatToNaira();
     final item = NotificationItem(
       id: 'notif_${_uuid.v4()}',

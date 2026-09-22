@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:nova_wallet_mobile/core/error/failures.dart';
 import 'package:nova_wallet_mobile/core/error/result.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
@@ -35,6 +36,9 @@ class SavingsRepositoryImpl implements SavingsRepository {
   }) {
     // Register feature handlers with core SyncEngine
     syncEngine.registerHandler(ActionType.createSavingsGoal, (action) async {
+      debugPrint(
+        '[SavingsRepository] [Sync Activation] Activating queued createSavingsGoal with idempotencyKey: ${action.idempotencyKey}',
+      );
       await remoteDataSource.createGoal(action.payload);
       final model = SavingsGoalModel.fromJson(action.payload);
       await dbHelper?.insertOrUpdateSavingsGoal(model);
@@ -44,10 +48,16 @@ class SavingsRepositoryImpl implements SavingsRepository {
         targetAmountKobo: model.targetAmount.kobo,
         isOffline: false,
       );
+      debugPrint(
+        '[SavingsRepository] [Sync Activation] createSavingsGoal synced successfully with idempotencyKey: ${action.idempotencyKey}',
+      );
       return true;
     });
 
     syncEngine.registerHandler(ActionType.contributeSavings, (action) async {
+      debugPrint(
+        '[SavingsRepository] [Sync Activation] Activating queued contributeSavings with idempotencyKey: ${action.idempotencyKey}',
+      );
       try {
         await remoteDataSource.contributeToGoal(action.payload);
         final goalId = action.payload['goal_id'] as String;
@@ -64,8 +74,14 @@ class SavingsRepositoryImpl implements SavingsRepository {
           amountKobo: amountKobo,
           isOffline: false,
         );
+        debugPrint(
+          '[SavingsRepository] [Sync Activation] contributeSavings synced successfully with idempotencyKey: ${action.idempotencyKey}',
+        );
         return true;
       } catch (e) {
+        debugPrint(
+          '[SavingsRepository] [Sync Activation] contributeSavings sync failed with idempotencyKey: ${action.idempotencyKey}, error: $e',
+        );
         await walletRepository?.updateTransactionStatus(
           action.idempotencyKey,
           TransactionStatus.failed,

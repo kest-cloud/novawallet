@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
 import 'package:nova_wallet_mobile/core/theme/app_colors.dart';
 import 'package:nova_wallet_mobile/features/send_money/presentation/notifier/send_money_provider.dart';
@@ -303,7 +304,15 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
             // Account Number Field
             TextFormField(
               controller: _accountController,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: false,
+                signed: false,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+                LengthLimitingTextInputFormatter(10),
+              ],
               maxLength: 10,
               decoration: const InputDecoration(
                 labelText: 'Account Number',
@@ -311,7 +320,9 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                 prefixIcon: Icon(Icons.credit_card_rounded),
               ),
               validator: (v) {
-                if (v == null || v.trim().length != 10) {
+                if (v == null ||
+                    v.trim().length != 10 ||
+                    !RegExp(r'^\d{10}$').hasMatch(v.trim())) {
                   return 'Enter valid 10-digit account number';
                 }
                 return null;
@@ -403,7 +414,14 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
             // Amount Input Field
             TextFormField(
               controller: _amountNairaController,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: false,
+                signed: false,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
+              ],
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               decoration: const InputDecoration(
                 labelText: 'Amount (₦)',

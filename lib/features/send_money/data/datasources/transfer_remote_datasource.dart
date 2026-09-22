@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:nova_wallet_mobile/features/send_money/data/models/transfer_request_model.dart';
 
 abstract class TransferRemoteDataSource {
@@ -14,6 +15,9 @@ class TransferRemoteDataSourceImpl implements TransferRemoteDataSource {
 
   @override
   Future<String> submitTransfer(TransferRequestModel request) async {
+    debugPrint(
+      '[TransferRemoteDataSource] Submitting transfer to network rail with idempotencyKey: ${request.idempotencyKey}',
+    );
     await Future.delayed(latency);
     processedIdempotencyKeys.add(request.idempotencyKey);
     return 'TXN_NIP_${DateTime.now().millisecondsSinceEpoch}';

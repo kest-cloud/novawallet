@@ -67,10 +67,12 @@ void main() {
       );
 
       final updated = await repository.getNotifications();
-      expect(updated.length, 2);
+      // Pending notification is replaced/removed, leaving the synced success item
+      expect(updated.length, 1);
       expect(updated.first.type, NotificationType.transferSuccess);
       expect(updated.first.type.displayName, 'Transfer Synced');
-      expect(await repository.getUnreadCount(), 2);
+      expect(updated.any((n) => n.type.isPending), isFalse);
+      expect(await repository.getUnreadCount(), 1);
     });
 
     test('Savings notifications categorize correctly', () async {

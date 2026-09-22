@@ -166,18 +166,19 @@ void main() {
         expect(remaining, isEmpty);
         expect(remoteDataSource.submittedTransfers.length, 1);
 
-        // 3. Verify notification list now has both Pending and Synced notifications
+        // 3. Verify pending notification was cleanly removed and replaced by Synced notification
         notifs = await notificationRepo.getNotifications();
-        expect(notifs.length, 2);
+        expect(notifs.length, 1);
+        expect(notifs.any((n) => n.type.isPending), isFalse);
 
-        // Latest notification should be Transfer Synced
+        // Notification is Transfer Synced
         expect(notifs.first.type, NotificationType.transferSuccess);
         expect(notifs.first.type.displayName, 'Transfer Synced');
         expect(notifs.first.title, 'Transfer Sent Successfully');
         expect(notifs.first.message, contains('Babatunde Raji'));
 
-        // Unread count is now 2 (Pending + Synced)
-        expect(await notificationRepo.getUnreadCount(), 2);
+        // Unread count is 1 (Synced notification)
+        expect(await notificationRepo.getUnreadCount(), 1);
 
         // 4. Mark all as read
         await notificationRepo.markAllAsRead();

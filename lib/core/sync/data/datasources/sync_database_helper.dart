@@ -1,3 +1,4 @@
+import 'package:nova_wallet_mobile/features/notifications/domain/entities/notification_item.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
@@ -336,6 +337,27 @@ class SyncDatabaseHelper {
     return 0;
   }
 
+  Future<void> deletePendingNotificationByIdempotencyKey(
+    String idempotencyKey,
+  ) async {
+    final db = await database;
+    final rows = await db.query(
+      notificationsTable,
+      where: 'type = ?',
+      whereArgs: [NotificationType.transferPending.name],
+    );
+    for (final row in rows) {
+      final payloadStr = row['payload'] as String?;
+      if (payloadStr != null && payloadStr.contains(idempotencyKey)) {
+        await db.delete(
+          notificationsTable,
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
+    }
+  }
+
   Future<void> clearAllNotifications() async {
     final db = await database;
     await db.delete(notificationsTable);
@@ -349,4 +371,3 @@ class SyncDatabaseHelper {
     }
   }
 }
-

@@ -51,6 +51,12 @@ class SendMoneyProvider extends ChangeNotifier {
   void _generateAttemptIdempotencyKey() {
     const uuid = Uuid();
     _activeIdempotencyKey = uuid.v4();
+    debugPrint(
+      '[SendMoneyProvider] Generated transfer idempotencyKey: $_activeIdempotencyKey',
+    );
+    debugPrint(
+      '[SendMoneyProvider] Generated transfer idempotencyKey: $_activeIdempotencyKey',
+    );
   }
 
   void setRecipient({
@@ -91,6 +97,12 @@ class SendMoneyProvider extends ChangeNotifier {
   Future<bool> submitTransfer() async {
     _status = SendMoneyStatus.submitting;
     _errorMessage = null;
+    debugPrint(
+      '[SendMoneyProvider] Submitting transfer with idempotencyKey: $_activeIdempotencyKey (amount: ${_amount.formatToNaira()}, recipient: $_recipientAccountNumber)',
+    );
+    debugPrint(
+      '[SendMoneyProvider] Submitting transfer with idempotencyKey: $_activeIdempotencyKey (amount: ${_amount.formatToNaira()}, recipient: $_recipientAccountNumber)',
+    );
     notifyListeners();
 
     final request = TransferRequest(

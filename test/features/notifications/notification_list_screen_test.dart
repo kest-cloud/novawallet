@@ -47,6 +47,16 @@ class FakeNotificationRepository implements NotificationRepository {
       Stream.value(List.from(items));
 
   @override
+  Future<void> removePendingNotification(String idempotencyKey) async {
+    items.removeWhere(
+      (item) =>
+          item.type == NotificationType.transferPending &&
+          item.payload != null &&
+          item.payload!['idempotency_key'] == idempotencyKey,
+    );
+  }
+
+  @override
   Future<void> clearAll() async {
     items.clear();
   }

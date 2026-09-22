@@ -8,5 +8,6 @@ abstract class NotificationRepository {
   Future<int> getUnreadCount();
   Stream<int> watchUnreadCount();
   Stream<List<NotificationItem>> watchNotifications();
+  Future<void> removePendingNotification(String idempotencyKey);
   Future<void> clearAll();
 }

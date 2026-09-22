@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
 import 'package:nova_wallet_mobile/core/theme/app_colors.dart';
 import 'package:nova_wallet_mobile/features/nova_save/domain/entities/savings_goal.dart';
@@ -86,6 +87,9 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
                         TextFormField(
                           controller: amountController,
                           keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                           decoration: const InputDecoration(
                             labelText: 'Target Amount (₦)',
                             hintText: '0',
@@ -193,6 +197,9 @@ class _NovaSaveScreenState extends State<NovaSaveScreen> {
                     TextFormField(
                       controller: amountController,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
                       autofocus: true,
                       decoration: const InputDecoration(
                         labelText: 'Contribution Amount (₦)',

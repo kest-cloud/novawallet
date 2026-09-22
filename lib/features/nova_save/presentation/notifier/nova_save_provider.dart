@@ -45,6 +45,9 @@ class NovaSaveProvider extends ChangeNotifier {
   void _generateAttemptIdempotencyKey() {
     const uuid = Uuid();
     _activeIdempotencyKey = uuid.v4();
+    debugPrint(
+      '[NovaSaveProvider] Generated savings idempotencyKey: $_activeIdempotencyKey',
+    );
   }
 
   Money get totalSavings {
@@ -83,6 +86,9 @@ class NovaSaveProvider extends ChangeNotifier {
   }) async {
     _status = NovaSaveStatus.submitting;
     _errorMessage = null;
+    debugPrint(
+      '[NovaSaveProvider] Submitting createGoal "$title" with idempotencyKey: $_activeIdempotencyKey',
+    );
     notifyListeners();
 
     final request = CreateGoalRequest(
@@ -120,6 +126,9 @@ class NovaSaveProvider extends ChangeNotifier {
   }) async {
     _status = NovaSaveStatus.submitting;
     _errorMessage = null;
+    debugPrint(
+      '[NovaSaveProvider] Submitting contributeToGoal ($goalId, ${amount.formatToNaira()}) with idempotencyKey: $_activeIdempotencyKey',
+    );
     notifyListeners();
 
     final request = SavingsContributionRequest(

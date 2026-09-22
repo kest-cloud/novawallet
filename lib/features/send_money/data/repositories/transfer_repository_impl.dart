@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:nova_wallet_mobile/core/error/failures.dart';
 import 'package:nova_wallet_mobile/core/error/result.dart';
 import 'package:nova_wallet_mobile/core/network/network_info.dart';
@@ -27,6 +28,9 @@ class TransferRepositoryImpl implements TransferRepository {
   }) {
     // Register feature action handler with the core standalone SyncEngine
     syncEngine.registerHandler(ActionType.sendMoney, (action) async {
+      debugPrint(
+        '[TransferRepository] [Sync Activation] Connection restored! Activating queued transfer with idempotencyKey: ${action.idempotencyKey}',
+      );
       final model = TransferRequestModel.fromJson(action.payload);
       try {
         await remoteDataSource.submitTransfer(model);
@@ -42,8 +46,14 @@ class TransferRepositoryImpl implements TransferRepository {
           accountNumber: model.recipientAccountNumber,
           bankName: model.recipientBankName,
         );
+        debugPrint(
+          '[TransferRepository] [Sync Activation] Queued transfer synced successfully with idempotencyKey: ${action.idempotencyKey}',
+        );
         return true;
       } catch (e) {
+        debugPrint(
+          '[TransferRepository] [Sync Activation] Queued transfer sync failed with idempotencyKey: ${action.idempotencyKey}, error: $e',
+        );
         await walletRepository?.updateTransactionStatus(
           action.idempotencyKey,
           TransactionStatus.failed,
@@ -86,6 +96,9 @@ class TransferRepositoryImpl implements TransferRepository {
     await walletRepository?.recordTransaction(tx);
 
     if (isConnected) {
+      debugPrint(
+        '[TransferRepository] Executing ONLINE transfer with idempotencyKey: ${request.idempotencyKey}',
+      );
       try {
         final reference = await remoteDataSource.submitTransfer(model);
         // Deduct wallet balance once online transfer is confirmed
@@ -109,6 +122,9 @@ class TransferRepositoryImpl implements TransferRepository {
       }
     } else {
       // Offline: Enqueue action via core sync engine (do NOT deduct balance while pending)
+      debugPrint(
+        '[TransferRepository] Device OFFLINE. Enqueuing transfer with idempotencyKey: ${request.idempotencyKey}',
+      );
       final action = QueuedAction.create(
         idempotencyKey: request.idempotencyKey,
         actionType: ActionType.sendMoney,
@@ -136,4 +152,3 @@ class TransferRepositoryImpl implements TransferRepository {
     }
   }
 }
-

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:nova_wallet_mobile/core/constants/app_constants.dart';
 import 'package:nova_wallet_mobile/core/money/money.dart';
 import 'package:nova_wallet_mobile/core/network/network_info.dart';
@@ -51,6 +52,9 @@ class SyncEngine {
       isConnected,
     ) {
       if (isConnected) {
+        debugPrint(
+          '[SyncEngine] Connectivity restored event received -> triggering processQueue()',
+        );
         processQueue();
       }
     });
@@ -69,6 +73,9 @@ class SyncEngine {
   /// Enqueues an action into the SQLite offline queue.
   /// Automatically attempts processing if connectivity is available.
   Future<void> enqueue(QueuedAction action) async {
+    debugPrint(
+      '[SyncEngine] Enqueuing offline action [${action.actionType.name}] id: ${action.id} with persistent idempotencyKey: ${action.idempotencyKey}',
+    );
     await repository.enqueue(action);
 
     if (await networkInfo.isConnected) {
@@ -91,6 +98,10 @@ class SyncEngine {
         return;
       }
 
+      debugPrint(
+        '[SyncEngine] Connection ACTIVE. Processing ${pendingActions.length} queued action(s)...',
+      );
+
       final total = pendingActions.length;
       _updateProgress(
         SyncProgress(
@@ -105,10 +116,24 @@ class SyncEngine {
       for (int i = 0; i < pendingActions.length; i++) {
         final action = pendingActions[i];
         // Re-check connectivity before each action attempt
-        if (!(await networkInfo.isConnected)) break;
+        if (!(await networkInfo.isConnected)) {
+          debugPrint(
+            '[SyncEngine] Connection lost during queue processing. Halting replay.',
+          );
+          break;
+        }
 
         final handler = _handlers[action.actionType];
-        if (handler == null) continue;
+        if (handler == null) {
+          debugPrint(
+            '[SyncEngine] No handler registered for ${action.actionType.name}, skipping action ${action.id}',
+          );
+          continue;
+        }
+
+        debugPrint(
+          '[SyncEngine] Activating/Replaying action ${action.id} (${action.actionType.name}) with persistent idempotencyKey: ${action.idempotencyKey}',
+        );
 
         _updateProgress(
           SyncProgress(
@@ -136,11 +161,20 @@ class SyncEngine {
 
           if (success) {
             // 3. Mark "sent" and remove from persistent queue upon verified success
+            debugPrint(
+              '[SyncEngine] Successfully synced action ${action.id} with idempotencyKey: ${action.idempotencyKey}',
+            );
             await repository.delete(action.id);
           } else {
+            debugPrint(
+              '[SyncEngine] Handler returned false for action ${action.id} with idempotencyKey: ${action.idempotencyKey}',
+            );
             await _handleActionFailure(action, 'Handler returned false');
           }
         } catch (e) {
+          debugPrint(
+            '[SyncEngine] Exception syncing action ${action.id} with idempotencyKey: ${action.idempotencyKey}: $e',
+          );
           await _handleActionFailure(action, e.toString());
         }
 

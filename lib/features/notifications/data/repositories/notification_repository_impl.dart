@@ -56,6 +56,12 @@ class NotificationRepositoryImpl implements NotificationRepository {
   }
 
   @override
+  Future<void> removePendingNotification(String idempotencyKey) async {
+    await dbHelper.deletePendingNotificationByIdempotencyKey(idempotencyKey);
+    await _notifyChange();
+  }
+
+  @override
   Future<void> clearAll() async {
     await dbHelper.clearAllNotifications();
     await _notifyChange();

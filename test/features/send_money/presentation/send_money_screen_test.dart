@@ -447,5 +447,40 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      'Account number and amount fields filter out alphabet letters and only accept numbers',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget(provider: sendMoneyProvider));
+        await tester.pumpAndSettle();
+
+        // 1. Account Number Field
+        final accountField = find.widgetWithText(
+          TextFormField,
+          'Account Number',
+        );
+        // Attempt entering alphabets mixed with numbers
+        await tester.enterText(accountField, 'abc0123def456789xyz');
+        await tester.pump();
+
+        final accountWidget = tester.widget<TextFormField>(accountField);
+        // Only 10 digits should be retained: 0123456789
+        expect(accountWidget.controller?.text, equals('0123456789'));
+
+        // Continue to amount step
+        await tester.tap(find.text('Continue to Amount'));
+        await tester.pumpAndSettle();
+
+        // 2. Amount Field
+        final amountField = find.widgetWithText(TextFormField, 'Amount (₦)');
+        // Attempt entering alphabets mixed with numbers
+        await tester.enterText(amountField, 'abc1500xyz0');
+        await tester.pump();
+
+        final amountWidget = tester.widget<TextFormField>(amountField);
+        // Only digits should be retained: 15000
+        expect(amountWidget.controller?.text, equals('15000'));
+      },
+    );
   });
 }
